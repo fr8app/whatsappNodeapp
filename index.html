@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Send Message</title>
+</head>
+<body>
+    <h1>Send Message to WhatsApp Customer/Driver</h1>
+    <form id="messageForm">
+        <label for="to">Customer/Driver Number:</label>
+        <input type="text" id="to" name="to" required>
+        <br><br>
+        <label for="message">Message:</label>
+        <textarea id="message" name="message" required></textarea>
+        <br><br>
+        <button type="submit">Send Message</button>
+    </form>
+    <div id="response"></div>
+    <script>
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const to = document.getElementById('to').value;
+            const message = document.getElementById('message').value;
+            fetch('/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ to, message })
+            }).then(response => response.text())
+              .then(data => {
+                  document.getElementById('response').innerText = data;
+                  document.getElementById('to').value = '';
+                  document.getElementById('message').value = '';
+              }).catch(error => {
+                  document.getElementById('response').innerText = 'Error: ' + error;
+              });
+        });
+    </script>
+</body>
+</html>
