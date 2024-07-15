@@ -21,7 +21,7 @@ const employees = [
 ];
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/whatsapp', { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true });
 
 // Define message schema and model
 const messageSchema = new mongoose.Schema({
@@ -42,7 +42,7 @@ app.post('/incoming', (req, res) => {
     console.log(`Received message from ${from}: ${message}`);
 
     // Store the incoming message in the database
-    const newMessage = new Message({ from, body: message, to: 'your_whatsapp_number' });
+    const newMessage = new Message({ from, body: message, to: 'whatsapp:+YourTwilioNumber' });
     newMessage.save().then(() => {
         // Forward the message to all employees
         employees.forEach(employee => {
@@ -66,11 +66,11 @@ app.post('/send', (req, res) => {
     // Send the message to the specified customer/driver number
     client.messages.create({
         body: message,
-        from: 'whatsapp:+YourTwilioNumber',  // Your Twilio WhatsApp number
+        from: 'whatsapp:+18434843838',  // Your Twilio WhatsApp number
         to: `whatsapp:${to}`  // The customer's/driver's WhatsApp number
     }).then(sentMessage => {
         // Store the outgoing message in the database
-        const newMessage = new Message({ from: 'your_whatsapp_number', to, body: message });
+        const newMessage = new Message({ from: 'whatsapp:+18434843838', to, body: message });
         newMessage.save().then(() => res.status(200).send('Message sent'));
     }).catch(error => {
         res.status(500).send('Error sending message');
