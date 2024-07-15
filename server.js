@@ -42,13 +42,13 @@ app.post('/incoming', (req, res) => {
     console.log(`Received message from ${from}: ${message}`);
 
     // Store the incoming message in the database
-    const newMessage = new Message({ from, body: message, to: 'whatsapp:+YourTwilioNumber' });
+    const newMessage = new Message({ from, body: message, to: 'whatsapp:+18434843838' });
     newMessage.save().then(() => {
         // Forward the message to all employees
         employees.forEach(employee => {
             client.messages.create({
                 body: `Message from ${from}: ${message}`,
-                from: 'whatsapp:+YourTwilioNumber', // Your Twilio WhatsApp number
+                from: 'whatsapp:+18434843838', // Your Twilio WhatsApp number
                 to: `whatsapp:${employee.number}`
             }).then(message => console.log(message.sid));
         });
