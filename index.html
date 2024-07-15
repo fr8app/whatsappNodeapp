@@ -1,40 +1,86 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Send Message</title>
+    <title>WhatsApp Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #chat {
+            width: 300px;
+            height: 400px;
+            border: 1px solid #ccc;
+            overflow-y: scroll;
+        }
+        #chat div {
+            padding: 5px;
+            margin: 5px 0;
+        }
+        .incoming {
+            background-color: #e0ffe0;
+        }
+        .outgoing {
+            background-color: #e0e0ff;
+            text-align: right;
+        }
+        #sendMessage {
+            display: flex;
+            margin-top: 10px;
+        }
+        #sendMessage input, #sendMessage textarea {
+            flex: 1;
+            padding: 10px;
+            margin: 5px;
+        }
+        #sendMessage button {
+            padding: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Send Message to WhatsApp Customer/Driver</h1>
-    <form id="messageForm">
-        <label for="to">Customer/Driver Number:</label>
-        <input type="text" id="to" name="to" required>
-        <br><br>
-        <label for="message">Message:</label>
-        <textarea id="message" name="message" required></textarea>
-        <br><br>
-        <button type="submit">Send Message</button>
+    <h1>WhatsApp Interface</h1>
+    <div id="chat"></div>
+    <form id="sendMessage">
+        <input type="text" id="to" placeholder="Enter number" required>
+        <textarea id="message" placeholder="Enter message" required></textarea>
+        <button type="submit">Send</button>
     </form>
-    <div id="response"></div>
     <script>
-        document.getElementById('messageForm').addEventListener('submit', function(e) {
+        const chat = document.getElementById('chat');
+        const form = document.getElementById('sendMessage');
+
+        function fetchMessages() {
+            fetch('/messages')
+                .then(response => response.json())
+                .then(messages => {
+                    chat.innerHTML = '';
+                    messages.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.className = msg.from.includes('whatsapp') ? 'incoming' : 'outgoing';
+                        div.textContent = `${msg.from}: ${msg.body}`;
+                        chat.appendChild(div);
+                    });
+                });
+        }
+
+        form.addEventListener('submit', function(e) {
             e.preventDefault();
             const to = document.getElementById('to').value;
-            const message = document.getElementById('message').value;
+            const body = document.getElementById('message').value;
+
             fetch('/send', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ to, message })
-            }).then(response => response.text())
-              .then(data => {
-                  document.getElementById('response').innerText = data;
-                  document.getElementById('to').value = '';
-                  document.getElementById('message').value = '';
-              }).catch(error => {
-                  document.getElementById('response').innerText = 'Error: ' + error;
-              });
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to, body })
+            }).then(() => {
+                document.getElementById('to').value = '';
+                document.getElementById('message').value = '';
+                fetchMessages();
+            }).catch(error => console.error('Error:', error));
         });
+
+        setInterval(fetchMessages, 5000); // Fetch messages every 5 seconds
+        fetchMessages();
     </script>
 </body>
 </html>
