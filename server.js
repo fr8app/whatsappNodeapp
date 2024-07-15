@@ -57,6 +57,7 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
 
-app.listen(3000, () => {
-    console.log('Server is running on port 3000');
+const port = 80; // Use port 80 for standard HTTP traffic
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
 });
