@@ -57,7 +57,7 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
 
-const port = 80; // Use port 80 for standard HTTP traffic
+const port = 8080; // Change this line to use port 8080
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
