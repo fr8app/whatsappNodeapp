@@ -1,7 +1,10 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
 const { MessagingResponse } = require('twilio').twiml;
 const twilio = require('twilio');
+const path = require('path');
+
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -17,6 +20,19 @@ const employees = [
     // Add more employees here
 ];
 
+// Connect to MongoDB
+mongoose.connect('mongodb://localhost:27017/whatsapp', { useNewUrlParser: true, useUnifiedTopology: true });
+
+// Define message schema and model
+const messageSchema = new mongoose.Schema({
+    from: String,
+    to: String,
+    body: String,
+    date: { type: Date, default: Date.now }
+});
+
+const Message = mongoose.model('Message', messageSchema);
+
 // Endpoint to handle incoming messages from customers/drivers
 app.post('/incoming', (req, res) => {
     const message = req.body.Body;
@@ -25,16 +41,22 @@ app.post('/incoming', (req, res) => {
     // Log the message or process it as needed
     console.log(`Received message from ${from}: ${message}`);
 
-    // Forward the message to all employees
-    employees.forEach(employee => {
-        client.messages.create({
-            body: `Message from ${from}: ${message}`,
-            from: 'whatsapp:+YourTwilioNumber', // Your Twilio WhatsApp number
-            to: `whatsapp:${employee.number}`
-        }).then(message => console.log(message.sid));
-    });
+    // Store the incoming message in the database
+    const newMessage = new Message({ from, body: message, to: 'your_whatsapp_number' });
+    newMessage.save().then(() => {
+        // Forward the message to all employees
+        employees.forEach(employee => {
+            client.messages.create({
+                body: `Message from ${from}: ${message}`,
+                from: 'whatsapp:+YourTwilioNumber', // Your Twilio WhatsApp number
+                to: `whatsapp:${employee.number}`
+            }).then(message => console.log(message.sid));
+        });
 
-    res.status(200).send('Message forwarded');
+        const twiml = new MessagingResponse();
+        res.writeHead(200, { 'Content-Type': 'text/xml' });
+        res.end(twiml.toString());
+    }).catch(err => res.status(500).send(err));
 });
 
 // Endpoint for employees to send messages to customers/drivers
@@ -46,15 +68,22 @@ app.post('/send', (req, res) => {
         body: message,
         from: 'whatsapp:+YourTwilioNumber',  // Your Twilio WhatsApp number
         to: `whatsapp:${to}`  // The customer's/driver's WhatsApp number
-    }).then(message => {
-        res.status(200).send('Message sent');
+    }).then(sentMessage => {
+        // Store the outgoing message in the database
+        const newMessage = new Message({ from: 'your_whatsapp_number', to, body: message });
+        newMessage.save().then(() => res.status(200).send('Message sent'));
     }).catch(error => {
         res.status(500).send('Error sending message');
     });
 });
 
+// Endpoint to fetch all messages
+app.get('/messages', (req, res) => {
+    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => res.status(500).send(err));
+});
+
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const port = 8080; // Change this line to use port 8080
