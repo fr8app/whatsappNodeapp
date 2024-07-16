@@ -46,30 +46,44 @@
         <button type="submit">Send</button>
     </form>
 
-    
-   <script>
-    document.querySelector('form').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const number = document.querySelector('input[name="number"]').value;
-        const message = document.querySelector('input[name="message"]').value;
+    <script>
+        document.getElementById('sendMessage').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const number = document.getElementById('to').value;
+            const message = document.getElementById('message').value;
 
-        fetch('/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                to: number,
-                message: message
-            })
-        }).then(response => response.json()).then(data => {
-            console.log('Success:', data);
-            // Optionally, update the UI to show the sent message
-        }).catch(error => {
-            console.error('Error:', error);
+            fetch('/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    to: number,
+                    message: message
+                })
+            }).then(response => response.json()).then(data => {
+                console.log('Success:', data);
+                // Optionally, update the UI to show the sent message
+            }).catch(error => {
+                console.error('Error:', error);
+            });
         });
-    });
-</script>
 
+        function fetchMessages() {
+            fetch('/messages')
+                .then(response => response.json())
+                .then(data => {
+                    const chatDiv = document.getElementById('chat');
+                    chatDiv.innerHTML = '';
+                    data.forEach(msg => {
+                        const messageElement = document.createElement('div');
+                        messageElement.textContent = `${msg.from}: ${msg.body}`;
+                        chatDiv.appendChild(messageElement);
+                    });
+                });
+        }
+
+        setInterval(fetchMessages, 5000);
+    </script>
 </body>
 </html>
