@@ -11,7 +11,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
-const authToken = 'f9eeaad61a3a4adf70f36766191c6cb3'; // New auth token
+const authToken = 'f9eeaad61a3a4adf70f36766191c6cb3';
 const client = new twilio(accountSid, authToken);
 
 const employees = [
@@ -50,7 +50,8 @@ app.post('/incoming', (req, res) => {
                 body: `Message from ${from}: ${message}`,
                 from: 'whatsapp:+18434843838', // Your Twilio WhatsApp number
                 to: `whatsapp:${employee.number}`
-            }).then(message => console.log(message.sid));
+            }).then(message => console.log(`Message sent with SID: ${message.sid}`))
+              .catch(err => console.error(`Error sending message to ${employee.number}:`, err));
         });
 
         const twiml = new MessagingResponse();
@@ -77,7 +78,7 @@ app.post('/send', (req, res) => {
     }).then(sentMessage => {
         // Log the message SID for debugging
         console.log(`Message sent with SID: ${sentMessage.sid}`);
-        
+
         // Store the outgoing message in the database
         const newMessage = new Message({ from: 'whatsapp:+18434843838', to, body: message });
         newMessage.save().then(() => {
@@ -85,14 +86,14 @@ app.post('/send', (req, res) => {
         }).catch(saveError => {
             // Log the save error details
             console.error('Error saving outgoing message to database:', saveError);
-            
+
             // Return detailed error response
             res.status(500).json({ error: 'Database error', details: saveError.message });
         });
     }).catch(error => {
         // Log the error details
         console.error('Error sending message:', error);
-        
+
         // Return detailed error response
         res.status(500).json({ error: 'Twilio error', details: error.message });
     });
