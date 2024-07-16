@@ -70,6 +70,11 @@ app.post('/send', (req, res) => {
     // Log the request data for debugging
     console.log(`Sending message: ${message} to: ${to}`);
 
+    if (!message || !to) {
+        console.error('Message or recipient number is missing');
+        return res.status(400).json({ error: 'Message or recipient number is missing' });
+    }
+
     // Send the message to the specified customer/driver number
     client.messages.create({
         body: message,
@@ -98,6 +103,7 @@ app.post('/send', (req, res) => {
         res.status(500).json({ error: 'Twilio error', details: error.message });
     });
 });
+
 
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
