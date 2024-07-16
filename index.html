@@ -5,52 +5,95 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #container {
+            width: 60%;
+            max-width: 800px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #header {
+            background-color: #075e54;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 24px;
         }
         #chat {
-            width: auto;
-            height: 400px;
-            border: 1px solid #ccc;
+            flex: 1;
+            padding: 10px;
             overflow-y: scroll;
+            background-color: #e5ddd5;
         }
         #chat div {
-            padding: 5px;
             margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 70%;
         }
         .incoming {
-            background-color: #e0ffe0;
+            background-color: #ffffff;
+            align-self: flex-start;
         }
         .outgoing {
-            background-color: #e0e0ff;
+            background-color: #dcf8c6;
+            align-self: flex-end;
             text-align: right;
         }
         #sendMessage {
             display: flex;
-            margin-top: 10px;
+            border-top: 1px solid #ddd;
+            padding: 10px;
+            background-color: #fafafa;
         }
         #sendMessage input, #sendMessage textarea {
             flex: 1;
             padding: 10px;
             margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            outline: none;
         }
         #sendMessage button {
             padding: 10px;
+            background-color: #075e54;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #sendMessage button:hover {
+            background-color: #064e48;
         }
     </style>
 </head>
 <body>
-    <h1>WhatsApp Interface</h1>
-    <div id="chat"></div>
-    <form id="sendMessage">
-        <input type="text" id="to" placeholder="Enter number" required>
-        <textarea id="message" placeholder="Enter message" required></textarea>
-        <button type="submit">Send</button>
-    </form>
-
+    <div id="container">
+        <div id="header">WhatsApp Interface</div>
+        <div id="chat"></div>
+        <form id="sendMessage">
+            <input type="text" id="to" placeholder="Enter number" required>
+            <textarea id="message" placeholder="Enter message" required></textarea>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+    
     <script>
-        document.getElementById('sendMessage').addEventListener('submit', function (e) {
+        document.querySelector('form').addEventListener('submit', function (e) {
             e.preventDefault();
-            const number = document.getElementById('to').value;
-            const message = document.getElementById('message').value;
+            const number = document.querySelector('input#to').value;
+            const message = document.querySelector('textarea#message').value;
 
             fetch('/send', {
                 method: 'POST',
@@ -63,27 +106,17 @@
                 })
             }).then(response => response.json()).then(data => {
                 console.log('Success:', data);
-                // Optionally, update the UI to show the sent message
+                if (data.message) {
+                    const chat = document.getElementById('chat');
+                    const newMessage = document.createElement('div');
+                    newMessage.classList.add('outgoing');
+                    newMessage.textContent = `You: ${message}`;
+                    chat.appendChild(newMessage);
+                }
             }).catch(error => {
                 console.error('Error:', error);
             });
         });
-
-        function fetchMessages() {
-            fetch('/messages')
-                .then(response => response.json())
-                .then(data => {
-                    const chatDiv = document.getElementById('chat');
-                    chatDiv.innerHTML = '';
-                    data.forEach(msg => {
-                        const messageElement = document.createElement('div');
-                        messageElement.textContent = `${msg.from}: ${msg.body}`;
-                        chatDiv.appendChild(messageElement);
-                    });
-                });
-        }
-
-        setInterval(fetchMessages, 5000);
     </script>
 </body>
 </html>
