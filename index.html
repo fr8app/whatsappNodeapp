@@ -35,6 +35,8 @@
             padding: 10px;
             overflow-y: scroll;
             background-color: #e5ddd5;
+            display: flex;
+            flex-direction: column-reverse;
         }
         #chat div {
             margin: 5px 0;
@@ -97,9 +99,9 @@
                 .then(response => response.json())
                 .then(messages => {
                     const chat = document.getElementById('chat');
-                    messages.forEach(msg => {
+                    messages.reverse().forEach(msg => {
                         const newMessage = document.createElement('div');
-                        newMessage.classList.add(msg.from.includes('whatsapp') ? 'incoming' : 'outgoing');
+                        newMessage.classList.add(msg.from === 'whatsapp:+18434843838' ? 'outgoing' : 'incoming');
                         newMessage.textContent = `${msg.from}: ${msg.body}`;
                         chat.appendChild(newMessage);
                     });
