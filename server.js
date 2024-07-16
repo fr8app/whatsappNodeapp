@@ -105,6 +105,7 @@ app.post('/send', (req, res) => {
 });
 
 
+
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
     Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => res.status(500).send(err));
