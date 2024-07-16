@@ -11,7 +11,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
-const authToken = 'f9c7108ef4f31405894bbaa266d507a3';
+const authToken = 'f9eeaad61a3a4adf70f36766191c6cb3'; // New auth token
 const client = new twilio(accountSid, authToken);
 
 const employees = [
