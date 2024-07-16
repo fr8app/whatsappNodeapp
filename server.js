@@ -77,15 +77,24 @@ app.post('/send', (req, res) => {
         
         // Store the outgoing message in the database
         const newMessage = new Message({ from: 'whatsapp:+18434843838', to, body: message });
-        newMessage.save().then(() => res.status(200).send('Message sent'));
+        newMessage.save().then(() => {
+            res.status(200).send('Message sent');
+        }).catch(saveError => {
+            // Log the save error details
+            console.error('Error saving message to database:', saveError);
+            
+            // Return detailed error response
+            res.status(500).json({ error: 'Database error', details: saveError.message });
+        });
     }).catch(error => {
         // Log the error details
         console.error('Error sending message:', error);
         
         // Return detailed error response
-        res.status(500).json({ error: error.message, details: error });
+        res.status(500).json({ error: 'Twilio error', details: error.message });
     });
 });
+
 
 
 // Endpoint to fetch all messages
