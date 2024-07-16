@@ -63,19 +63,30 @@ app.post('/incoming', (req, res) => {
 app.post('/send', (req, res) => {
     const { message, to } = req.body;
 
+    // Log the request data for debugging
+    console.log(`Sending message: ${message} to: ${to}`);
+
     // Send the message to the specified customer/driver number
     client.messages.create({
         body: message,
         from: 'whatsapp:+18434843838',  // Your Twilio WhatsApp number
         to: `whatsapp:${to}`  // The customer's/driver's WhatsApp number
     }).then(sentMessage => {
+        // Log the message SID for debugging
+        console.log(`Message sent with SID: ${sentMessage.sid}`);
+        
         // Store the outgoing message in the database
         const newMessage = new Message({ from: 'whatsapp:+18434843838', to, body: message });
         newMessage.save().then(() => res.status(200).send('Message sent'));
     }).catch(error => {
-        res.status(500).send('Error sending message');
+        // Log the error details
+        console.error('Error sending message:', error);
+        
+        // Return detailed error response
+        res.status(500).json({ error: error.message, details: error });
     });
 });
+
 
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
