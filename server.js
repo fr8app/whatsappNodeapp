@@ -66,6 +66,7 @@ app.post('/incoming', (req, res) => {
 // Endpoint for employees to send messages to customers/drivers
 app.post('/send', (req, res) => {
     const { message, to } = req.body;
+    const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
 
     // Log the request data for debugging
     console.log(`Sending message: ${message} to: ${to}`);
@@ -78,14 +79,14 @@ app.post('/send', (req, res) => {
     // Send the message to the specified customer/driver number
     client.messages.create({
         body: message,
-        from: 'whatsapp:+18434843838',  // Your Twilio WhatsApp number
-        to: `whatsapp:${to}`  // The customer's/driver's WhatsApp number
+        from,
+        to: `whatsapp:${to}`
     }).then(sentMessage => {
         // Log the message SID for debugging
         console.log(`Message sent with SID: ${sentMessage.sid}`);
 
         // Store the outgoing message in the database
-        const newMessage = new Message({ from: 'whatsapp:+18434843838', to, body: message });
+        const newMessage = new Message({ from, to, body: message });
         newMessage.save().then(() => {
             res.status(200).json({ message: 'Message sent' });
         }).catch(saveError => {
