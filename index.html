@@ -112,11 +112,25 @@
                     newMessage.classList.add('outgoing');
                     newMessage.textContent = `You: ${message}`;
                     chat.appendChild(newMessage);
+                    document.querySelector('textarea#message').value = '';
                 }
             }).catch(error => {
                 console.error('Error:', error);
             });
         });
+
+        // Simulate incoming messages
+        function addIncomingMessage(from, message) {
+            const chat = document.getElementById('chat');
+            const newMessage = document.createElement('div');
+            newMessage.classList.add('incoming');
+            newMessage.textContent = `${from}: ${message}`;
+            chat.appendChild(newMessage);
+        }
+
+        // Example of how you could add an incoming message
+        addIncomingMessage('whatsapp:+1234567890', 'Hello!');
+        addIncomingMessage('whatsapp:+0987654321', 'Hi there!');
     </script>
 </body>
 </html>
