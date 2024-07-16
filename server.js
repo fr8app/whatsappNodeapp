@@ -87,7 +87,7 @@ app.post('/send', (req, res) => {
         // Store the outgoing message in the database
         const newMessage = new Message({ from: 'whatsapp:+18434843838', to, body: message });
         newMessage.save().then(() => {
-            res.status(200).send('Message sent');
+            res.status(200).json({ message: 'Message sent' });
         }).catch(saveError => {
             // Log the save error details
             console.error('Error saving outgoing message to database:', saveError);
