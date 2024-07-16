@@ -56,7 +56,10 @@ app.post('/incoming', (req, res) => {
         const twiml = new MessagingResponse();
         res.writeHead(200, { 'Content-Type': 'text/xml' });
         res.end(twiml.toString());
-    }).catch(err => res.status(500).send(err));
+    }).catch(err => {
+        console.error('Error saving incoming message to database:', err);
+        res.status(500).send('Error saving incoming message to database');
+    });
 });
 
 // Endpoint for employees to send messages to customers/drivers
@@ -81,7 +84,7 @@ app.post('/send', (req, res) => {
             res.status(200).send('Message sent');
         }).catch(saveError => {
             // Log the save error details
-            console.error('Error saving message to database:', saveError);
+            console.error('Error saving outgoing message to database:', saveError);
             
             // Return detailed error response
             res.status(500).json({ error: 'Database error', details: saveError.message });
@@ -94,8 +97,6 @@ app.post('/send', (req, res) => {
         res.status(500).json({ error: 'Twilio error', details: error.message });
     });
 });
-
-
 
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
