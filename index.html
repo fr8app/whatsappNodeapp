@@ -112,7 +112,7 @@
     <div id="container">
         <div id="contacts">
             <div id="header">Contacts</div>
-            <ul>
+            <ul id="contactList">
                 <!-- Contacts will be dynamically inserted here -->
             </ul>
         </div>
@@ -129,16 +129,16 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
-            // Fetch and display contacts
+            // Populate contact list
             fetch('/contacts')
                 .then(response => response.json())
                 .then(contacts => {
-                    const contactList = document.querySelector('#contacts ul');
+                    const contactList = document.getElementById('contactList');
                     contacts.forEach(contact => {
                         const li = document.createElement('li');
                         li.textContent = contact;
                         li.dataset.number = contact;
-                        li.addEventListener('click', () => loadChat(contact, contact));
+                        li.addEventListener('click', () => loadChat(contact));
                         contactList.appendChild(li);
                     });
                 })
@@ -187,17 +187,17 @@
             });
         });
 
-        const loadChat = (number, name) => {
-            document.querySelector('#chatHeader').textContent = `Chat with ${name}`;
+        const loadChat = (number) => {
+            document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
             document.querySelector('input#to').value = number;
 
-            // Fetch and display chat messages for the selected contact
+            // Fetch and display the chat history for the selected contact
             fetch(`/messages/${number}`)
                 .then(response => response.json())
                 .then(messages => {
-                    const chat = document.getElementById('chatMessages');
-                    chat.innerHTML = ''; // Clear the chat window
-                    messages.forEach(msg => {
+                    const chatMessages = document.getElementById('chatMessages');
+                    chatMessages.innerHTML = '';
+                    messages.reverse().forEach(msg => {
                         addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                     });
                 })
