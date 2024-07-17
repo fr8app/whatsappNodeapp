@@ -84,22 +84,14 @@
             border-top: 1px solid #ddd;
             background-color: #fafafa;
         }
-        #contacts ul {
-            list-style: none;
-            padding: 0;
-        }
-        #contacts li {
+        #contacts div {
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #ffffff;
             display: flex;
             justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-        #contacts li button {
-            background-color: red;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            align-items: center;
         }
     </style>
 </head>
@@ -113,59 +105,66 @@
             <button type="submit">Send</button>
         </form>
         <div id="contacts">
-            <h3>Contacts</h3>
-            <ul id="contactList"></ul>
-            <form id="addContact">
-                <input type="text" id="contactName" placeholder="Name" required>
-                <input type="text" id="contactNumber" placeholder="Number" required>
-                <button type="submit">Add Contact</button>
-            </form>
+            <input type="text" id="contactName" placeholder="Contact Name">
+            <input type="text" id="contactNumber" placeholder="Contact Number">
+            <button id="addContactButton">Add Contact</button>
         </div>
     </div>
     
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
-            fetchMessages();
-            fetchContacts();
-        });
+            const chat = document.getElementById('chat');
+            const contacts = document.getElementById('contacts');
 
-        function fetchMessages() {
+            // WebSocket connection setup
+            const ws = new WebSocket(`ws://${location.host}`);
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.from && data.body) {
+                    const newMessage = document.createElement('div');
+                    newMessage.classList.add(data.from === 'whatsapp:+18434843838' ? 'outgoing' : 'incoming');
+                    newMessage.textContent = `${data.from}: ${data.body}`;
+                    chat.appendChild(newMessage);
+                    chat.scrollTop = chat.scrollHeight;
+                } else if (data.contact) {
+                    const contact = document.createElement('div');
+                    contact.textContent = `${data.contact.name} (${data.contact.number})`;
+                    contacts.appendChild(contact);
+                } else if (data.contactDeleted) {
+                    const contact = document.getElementById(`contact-${data.contactDeleted}`);
+                    if (contact) contact.remove();
+                }
+            };
+
+            // Fetch and display the chat history
             fetch('/messages')
                 .then(response => response.json())
                 .then(messages => {
-                    const chat = document.getElementById('chat');
-                    chat.innerHTML = ''; // Clear previous messages
                     messages.reverse().forEach(msg => {
                         const newMessage = document.createElement('div');
                         newMessage.classList.add(msg.from === 'whatsapp:+18434843838' ? 'outgoing' : 'incoming');
                         newMessage.textContent = `${msg.from}: ${msg.body}`;
                         chat.appendChild(newMessage);
                     });
-                    chat.scrollTop = chat.scrollHeight; // Scroll to bottom
+                    chat.scrollTop = chat.scrollHeight;
                 })
                 .catch(error => console.error('Error fetching messages:', error));
-        }
 
-        function fetchContacts() {
+            // Fetch and display contacts
             fetch('/contacts')
                 .then(response => response.json())
-                .then(contacts => {
-                    const contactList = document.getElementById('contactList');
-                    contactList.innerHTML = ''; // Clear previous contacts
-                    contacts.forEach(contact => {
-                        const li = document.createElement('li');
-                        li.textContent = `${contact.name}: ${contact.number}`;
-                        const deleteButton = document.createElement('button');
-                        deleteButton.textContent = 'Delete';
-                        deleteButton.onclick = () => deleteContact(contact._id);
-                        li.appendChild(deleteButton);
-                        contactList.appendChild(li);
+                .then(contactList => {
+                    contactList.forEach(contact => {
+                        const contactDiv = document.createElement('div');
+                        contactDiv.id = `contact-${contact._id}`;
+                        contactDiv.textContent = `${contact.name} (${contact.number})`;
+                        contacts.appendChild(contactDiv);
                     });
                 })
                 .catch(error => console.error('Error fetching contacts:', error));
-        }
+        });
 
-        document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
+        document.querySelector('form').addEventListener('submit', function (e) {
             e.preventDefault();
             const number = document.querySelector('input#to').value;
             const message = document.querySelector('textarea#message').value;
@@ -182,45 +181,39 @@
             }).then(response => response.json()).then(data => {
                 console.log('Success:', data);
                 if (data.message) {
-                    fetchMessages(); // Fetch messages again to include the new message
+                    const chat = document.getElementById('chat');
+                    const newMessage = document.createElement('div');
+                    newMessage.classList.add('outgoing');
+                    newMessage.textContent = `You: ${message}`;
+                    chat.appendChild(newMessage);
                     document.querySelector('textarea#message').value = '';
+                    chat.scrollTop = chat.scrollHeight;
                 }
             }).catch(error => {
                 console.error('Error:', error);
             });
         });
 
-        document.querySelector('form#addContact').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const name = document.querySelector('input#contactName').value;
-            const number = document.querySelector('input#contactNumber').value;
+        // Add contact
+        document.getElementById('addContactButton').addEventListener('click', () => {
+            const contactName = document.getElementById('contactName').value;
+            const contactNumber = document.getElementById('contactNumber').value;
 
             fetch('/contacts', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ name, number })
-            }).then(response => response.json()).then(data => {
-                console.log('Success:', data);
-                fetchContacts(); // Fetch contacts again to include the new contact
-                document.querySelector('input#contactName').value = '';
-                document.querySelector('input#contactNumber').value = '';
-            }).catch(error => {
-                console.error('Error:', error);
-            });
+                body: JSON.stringify({ name: contactName, number: contactNumber })
+            }).then(response => response.json()).then(contact => {
+                const contactDiv = document.createElement('div');
+                contactDiv.id = `contact-${contact._id}`;
+                contactDiv.textContent = `${contact.name} (${contact.number})`;
+                document.getElementById('contacts').appendChild(contactDiv);
+                document.getElementById('contactName').value = '';
+                document.getElementById('contactNumber').value = '';
+            }).catch(error => console.error('Error adding contact:', error));
         });
-
-        function deleteContact(id) {
-            fetch(`/contacts/${id}`, {
-                method: 'DELETE'
-            }).then(response => response.json()).then(data => {
-                console.log('Success:', data);
-                fetchContacts(); // Fetch contacts again to remove the deleted contact
-            }).catch(error => {
-                console.error('Error:', error);
-            });
-        }
     </script>
 </body>
 </html>
