@@ -22,7 +22,9 @@ const employees = [
 ];
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('Connected to MongoDB'))
+    .catch(err => console.error('Error connecting to MongoDB:', err));
 
 // Define message schema and model
 const messageSchema = new mongoose.Schema({
@@ -42,13 +44,10 @@ app.post('/incoming', (req, res) => {
     const message = req.body.Body;
     const from = standardizeNumber(req.body.From);
 
-    // Log the message or process it as needed
     console.log(`Received message from ${from}: ${message}`);
 
-    // Store the incoming message in the database
     const newMessage = new Message({ from, body: message, to: standardizeNumber('whatsapp:+18434843838') });
     newMessage.save().then(() => {
-        // Forward the message to all employees
         employees.forEach(employee => {
             client.messages.create({
                 body: `Message from ${from}: ${message}`,
@@ -58,7 +57,6 @@ app.post('/incoming', (req, res) => {
               .catch(err => console.error(`Error sending message to ${employee.number}:`, err));
         });
 
-        // Send the message to all connected WebSocket clients
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({ from, message }));
@@ -79,7 +77,6 @@ app.post('/send', (req, res) => {
     const { message, to } = req.body;
     const from = standardizeNumber('whatsapp:+18434843838'); // Your Twilio WhatsApp number
 
-    // Log the request data for debugging
     console.log(`Sending message: ${message} to: ${to}`);
 
     if (!message || !to) {
@@ -87,45 +84,38 @@ app.post('/send', (req, res) => {
         return res.status(400).json({ error: 'Message or recipient number is missing' });
     }
 
-    // Send the message to the specified customer/driver number
     client.messages.create({
         body: message,
         from,
         to: `whatsapp:${standardizeNumber(to)}`
     }).then(sentMessage => {
-        // Log the message SID for debugging
         console.log(`Message sent with SID: ${sentMessage.sid}`);
 
-        // Store the outgoing message in the database
         const newMessage = new Message({ from, to: standardizeNumber(to), body: message });
         newMessage.save().then(() => {
             res.status(200).json({ message: 'Message sent' });
 
-            // Send the message to all connected WebSocket clients
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({ from, to: standardizeNumber(to), message }));
                 }
             });
         }).catch(saveError => {
-            // Log the save error details
             console.error('Error saving outgoing message to database:', saveError);
-
-            // Return detailed error response
             res.status(500).json({ error: 'Database error', details: saveError.message });
         });
     }).catch(error => {
-        // Log the error details
         console.error('Error sending message:', error);
-
-        // Return detailed error response
         res.status(500).json({ error: 'Twilio error', details: error.message });
     });
 });
 
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
-    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => res.status(500).send(err));
+    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => {
+        console.error('Error fetching messages:', err);
+        res.status(500).send('Error fetching messages');
+    });
 });
 
 // Endpoint to fetch unique contacts from messages
