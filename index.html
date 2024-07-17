@@ -94,6 +94,14 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
+            // WebSocket setup
+            const ws = new WebSocket('ws://' + window.location.host);
+
+            ws.onmessage = (event) => {
+                const { from, message } = JSON.parse(event.data);
+                addMessage(from, message, from === 'whatsapp:+18434843838');
+            };
+
             // Fetch and display the chat history
             fetch('/messages')
                 .then(response => response.json())
@@ -140,19 +148,19 @@
             });
         });
 
-        // Simulate incoming messages for testing
-        function addIncomingMessage(from, message) {
+        const addMessage = (from, message, isOutgoing) => {
             const chat = document.getElementById('chat');
-            const newMessage = document.createElement('div');
-            newMessage.classList.add('incoming');
-            newMessage.textContent = `${from}: ${message}`;
-            chat.appendChild(newMessage);
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message');
+            msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
+            msgDiv.textContent = `${from}: ${message}`;
+            chat.appendChild(msgDiv);
             chat.scrollTop = chat.scrollHeight; // Scroll to bottom
-        }
+        };
 
         // Example of how you could add an incoming message for testing
-        // addIncomingMessage('whatsapp:+1234567890', 'Hello!');
-        // addIncomingMessage('whatsapp:+0987654321', 'Hi there!');
+        // addMessage('whatsapp:+1234567890', 'Hello!');
+        // addMessage('whatsapp:+0987654321', 'Hi there!');
     </script>
 </body>
 </html>
