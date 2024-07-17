@@ -34,23 +34,26 @@ const messageSchema = new mongoose.Schema({
 
 const Message = mongoose.model('Message', messageSchema);
 
+// Standardize contact number
+const standardizeNumber = (number) => number.replace('whatsapp:', '');
+
 // Endpoint to handle incoming messages from customers/drivers
 app.post('/incoming', (req, res) => {
     const message = req.body.Body;
-    const from = req.body.From;
+    const from = standardizeNumber(req.body.From);
 
     // Log the message or process it as needed
     console.log(`Received message from ${from}: ${message}`);
 
     // Store the incoming message in the database
-    const newMessage = new Message({ from, body: message, to: 'whatsapp:+18434843838' });
+    const newMessage = new Message({ from, body: message, to: standardizeNumber('whatsapp:+18434843838') });
     newMessage.save().then(() => {
         // Forward the message to all employees
         employees.forEach(employee => {
             client.messages.create({
                 body: `Message from ${from}: ${message}`,
                 from: 'whatsapp:+18434843838', // Your Twilio WhatsApp number
-                to: `whatsapp:${employee.number}`
+                to: `whatsapp:${standardizeNumber(employee.number)}`
             }).then(message => console.log(`Message sent with SID: ${message.sid}`))
               .catch(err => console.error(`Error sending message to ${employee.number}:`, err));
         });
@@ -74,7 +77,7 @@ app.post('/incoming', (req, res) => {
 // Endpoint for employees to send messages to customers/drivers
 app.post('/send', (req, res) => {
     const { message, to } = req.body;
-    const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
+    const from = standardizeNumber('whatsapp:+18434843838'); // Your Twilio WhatsApp number
 
     // Log the request data for debugging
     console.log(`Sending message: ${message} to: ${to}`);
@@ -88,20 +91,20 @@ app.post('/send', (req, res) => {
     client.messages.create({
         body: message,
         from,
-        to: `whatsapp:${to}`
+        to: `whatsapp:${standardizeNumber(to)}`
     }).then(sentMessage => {
         // Log the message SID for debugging
         console.log(`Message sent with SID: ${sentMessage.sid}`);
 
         // Store the outgoing message in the database
-        const newMessage = new Message({ from, to, body: message });
+        const newMessage = new Message({ from, to: standardizeNumber(to), body: message });
         newMessage.save().then(() => {
             res.status(200).json({ message: 'Message sent' });
 
             // Send the message to all connected WebSocket clients
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ from, to, message }));
+                    client.send(JSON.stringify({ from, to: standardizeNumber(to), message }));
                 }
             });
         }).catch(saveError => {
@@ -132,10 +135,13 @@ app.get('/contacts', async (req, res) => {
         const contacts = {};
 
         messages.forEach(msg => {
-            if (msg.from !== 'whatsapp:+18434843838') {
-                contacts[msg.from] = { number: msg.from };
+            const from = standardizeNumber(msg.from);
+            const to = standardizeNumber(msg.to);
+
+            if (from !== standardizeNumber('whatsapp:+18434843838')) {
+                contacts[from] = { number: from };
             } else {
-                contacts[msg.to] = { number: msg.to };
+                contacts[to] = { number: to };
             }
         });
 
