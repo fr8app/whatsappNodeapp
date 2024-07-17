@@ -24,7 +24,7 @@ const employees = [
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Define message schema and model
+// Define schemas and models
 const messageSchema = new mongoose.Schema({
     from: String,
     to: String,
@@ -32,31 +32,13 @@ const messageSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now }
 });
 
-const Message = mongoose.model('Message', messageSchema);
-
-// Define contact schema and model
 const contactSchema = new mongoose.Schema({
     name: String,
-    number: String
+    number: String,
 });
 
+const Message = mongoose.model('Message', messageSchema);
 const Contact = mongoose.model('Contact', contactSchema);
-
-// WebSocket setup
-const server = app.listen(8080, () => {
-    console.log(`Server is running on port 8080`);
-});
-const wss = new WebSocket.Server({ server });
-
-wss.on('connection', (ws) => {
-    console.log('Client connected');
-    ws.on('message', (message) => {
-        console.log('Received:', message);
-    });
-    ws.on('close', () => {
-        console.log('Client disconnected');
-    });
-});
 
 // Endpoint to handle incoming messages from customers/drivers
 app.post('/incoming', (req, res) => {
@@ -125,7 +107,7 @@ app.post('/send', (req, res) => {
             // Send the message to all connected WebSocket clients
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ from, to, body: message }));
+                    client.send(JSON.stringify({ from, to, message }));
                 }
             });
         }).catch(saveError => {
@@ -151,21 +133,44 @@ app.get('/messages', (req, res) => {
 
 // Endpoint to fetch all contacts
 app.get('/contacts', (req, res) => {
-    Contact.find().then(contacts => res.json(contacts)).catch(err => res.status(500).send(err));
+    Contact.find().sort({ name: 1 }).then(contacts => res.json(contacts)).catch(err => res.status(500).send(err));
 });
 
 // Endpoint to add a new contact
 app.post('/contacts', (req, res) => {
     const { name, number } = req.body;
-    const newContact = new Contact({ name, number });
-    newContact.save().then(contact => res.status(201).json(contact)).catch(err => res.status(500).send(err));
-});
 
-// Endpoint to delete a contact
-app.delete('/contacts/:id', (req, res) => {
-    Contact.findByIdAndDelete(req.params.id).then(() => res.status(204).send()).catch(err => res.status(500).send(err));
+    // Validate input
+    if (!name || !number) {
+        return res.status(400).json({ error: 'Name and number are required' });
+    }
+
+    const newContact = new Contact({ name, number });
+    newContact.save().then(() => {
+        res.status(201).json({ message: 'Contact added' });
+    }).catch(err => {
+        console.error('Error adding contact to database:', err);
+        res.status(500).json({ error: 'Error adding contact to database' });
+    });
 });
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+const server = app.listen(8080, () => {
+    console.log(`Server is running on port 8080`);
+});
+
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+    });
+    ws.on('close', () => {
+        console.log('Client disconnected');
+    });
 });
