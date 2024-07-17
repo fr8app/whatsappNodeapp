@@ -21,7 +21,25 @@
             border-radius: 5px;
             overflow: hidden;
             display: flex;
-            flex-direction: column;
+        }
+        #contacts {
+            width: 25%;
+            border-right: 1px solid #ddd;
+            background-color: #f8f8f8;
+            overflow-y: scroll;
+        }
+        #contacts ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #contacts li {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+        #contacts li:hover {
+            background-color: #eee;
         }
         #header {
             background-color: #075e54;
@@ -32,13 +50,22 @@
         }
         #chat {
             flex: 1;
-            padding: 10px;
-            overflow-y: scroll;
-            background-color: #e5ddd5;
             display: flex;
             flex-direction: column;
+            background-color: #e5ddd5;
         }
-        #chat div {
+        #chatHeader {
+            background-color: #075e54;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        #chatMessages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: scroll;
+        }
+        #chatMessages div {
             margin: 5px 0;
             padding: 10px;
             border-radius: 5px;
@@ -83,17 +110,44 @@
 </head>
 <body>
     <div id="container">
-        <div id="header">WhatsApp Interface</div>
-        <div id="chat"></div>
-        <form id="sendMessage">
-            <input type="text" id="to" placeholder="Enter number" required>
-            <textarea id="message" placeholder="Enter message" required></textarea>
-            <button type="submit">Send</button>
-        </form>
+        <div id="contacts">
+            <div id="header">Contacts</div>
+            <ul>
+                <!-- Contacts will be dynamically inserted here -->
+            </ul>
+        </div>
+        <div id="chat">
+            <div id="chatHeader">Chat</div>
+            <div id="chatMessages"></div>
+            <form id="sendMessage">
+                <input type="text" id="to" placeholder="Enter number" required>
+                <textarea id="message" placeholder="Enter message" required></textarea>
+                <button type="submit">Send</button>
+            </form>
+        </div>
     </div>
     
     <script>
+        const contacts = [
+            { name: 'John Smith', number: '+1234567890' },
+            { name: 'Jane Doe', number: '+1987654321' },
+            { name: 'Bob Johnson', number: '+1122334455' },
+            { name: 'Samantha Lee', number: '+1222333444' },
+            { name: 'William Chen', number: '+1333444555' },
+            { name: 'Emily Kim', number: '+1444555666' }
+        ];
+
         document.addEventListener('DOMContentLoaded', (event) => {
+            // Populate contact list
+            const contactList = document.querySelector('#contacts ul');
+            contacts.forEach(contact => {
+                const li = document.createElement('li');
+                li.textContent = contact.name;
+                li.dataset.number = contact.number;
+                li.addEventListener('click', () => loadChat(contact.number, contact.name));
+                contactList.appendChild(li);
+            });
+
             // WebSocket setup
             const ws = new WebSocket('ws://' + window.location.host);
 
@@ -106,14 +160,9 @@
             fetch('/messages')
                 .then(response => response.json())
                 .then(messages => {
-                    const chat = document.getElementById('chat');
                     messages.reverse().forEach(msg => {
-                        const newMessage = document.createElement('div');
-                        newMessage.classList.add(msg.from === 'whatsapp:+18434843838' ? 'outgoing' : 'incoming');
-                        newMessage.textContent = `${msg.from}: ${msg.body}`;
-                        chat.appendChild(newMessage);
+                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                     });
-                    chat.scrollTop = chat.scrollHeight; // Scroll to bottom
                 })
                 .catch(error => console.error('Error fetching messages:', error));
         });
@@ -133,25 +182,23 @@
                     message: message
                 })
             }).then(response => response.json()).then(data => {
-                console.log('Success:', data);
                 if (data.message) {
-                    const chat = document.getElementById('chat');
-                    const newMessage = document.createElement('div');
-                    newMessage.classList.add('outgoing');
-                    newMessage.textContent = `You: ${message}`;
-                    chat.appendChild(newMessage);
+                    addMessage('whatsapp:+18434843838', message, true);
                     document.querySelector('textarea#message').value = '';
-                    chat.scrollTop = chat.scrollHeight; // Scroll to bottom
                 }
             }).catch(error => {
                 console.error('Error:', error);
             });
         });
 
+        const loadChat = (number, name) => {
+            document.querySelector('#chatHeader').textContent = `Chat with ${name}`;
+            document.querySelector('input#to').value = number;
+        };
+
         const addMessage = (from, message, isOutgoing) => {
-            const chat = document.getElementById('chat');
+            const chat = document.getElementById('chatMessages');
             const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message');
             msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
             msgDiv.textContent = `${from}: ${message}`;
             chat.appendChild(msgDiv);
