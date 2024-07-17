@@ -192,15 +192,13 @@
             document.querySelector('input#to').value = number;
 
             // Fetch and display chat messages for the selected contact
-            fetch('/messages')
+            fetch(`/messages/${number}`)
                 .then(response => response.json())
                 .then(messages => {
                     const chat = document.getElementById('chatMessages');
                     chat.innerHTML = ''; // Clear the chat window
                     messages.forEach(msg => {
-                        if (msg.from === number || msg.to === number) {
-                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                        }
+                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                     });
                 })
                 .catch(error => console.error('Error fetching messages:', error));
@@ -214,11 +212,6 @@
             chat.appendChild(msgDiv);
             chat.scrollTop = chat.scrollHeight; // Scroll to bottom
         };
-
-        // Example of how you could add an incoming message for testing
-        // addMessage('whatsapp:+1234567890', 'Hello!');
-        // addMessage('whatsapp:+0987654321', 'Hi there!');
     </script>
 </body>
 </html>
-
