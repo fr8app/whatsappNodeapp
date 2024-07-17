@@ -116,7 +116,7 @@
             const chat = document.getElementById('chat');
             const contacts = document.getElementById('contacts');
 
-            // WebSocket connection setup
+            // WebSocket setup
             const ws = new WebSocket(`ws://${location.host}`);
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
