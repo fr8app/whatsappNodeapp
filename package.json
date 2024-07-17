@@ -10,7 +10,8 @@
     "express": "^4.17.1",
     "body-parser": "^1.19.0",
     "twilio": "^3.69.1",
-    "ws": "^8.2.1" // Add this line
+    "ws": "^8.0.0"
   }
 }
+
 
