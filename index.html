@@ -129,16 +129,16 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
-            // Populate contact list
+            // Fetch and display the contacts
             fetch('/contacts')
                 .then(response => response.json())
                 .then(contacts => {
                     const contactList = document.getElementById('contactList');
                     contacts.forEach(contact => {
                         const li = document.createElement('li');
-                        li.textContent = contact;
-                        li.dataset.number = contact;
-                        li.addEventListener('click', () => loadChat(contact));
+                        li.textContent = contact.number;
+                        li.dataset.number = contact.number;
+                        li.addEventListener('click', () => loadChat(contact.number));
                         contactList.appendChild(li);
                     });
                 })
@@ -191,14 +191,18 @@
             document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
             document.querySelector('input#to').value = number;
 
+            // Clear the chat messages
+            const chat = document.getElementById('chatMessages');
+            chat.innerHTML = '';
+
             // Fetch and display the chat history for the selected contact
-            fetch(`/messages/${number}`)
+            fetch('/messages')
                 .then(response => response.json())
                 .then(messages => {
-                    const chatMessages = document.getElementById('chatMessages');
-                    chatMessages.innerHTML = '';
                     messages.reverse().forEach(msg => {
-                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                        if (msg.from === number || msg.to === number) {
+                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                        }
                     });
                 })
                 .catch(error => console.error('Error fetching messages:', error));
