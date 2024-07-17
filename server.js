@@ -15,12 +15,6 @@ const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
 const authToken = '287c05680510f3515939b3b79eb0be97';
 const client = new twilio(accountSid, authToken);
 
-const employees = [
-    { name: 'Nivedita', number: '+919922637115' },
-    { name: 'Guillermo', number: '+12019264229' },
-    // Add more employees here
-];
-
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true });
 
@@ -32,12 +26,14 @@ const messageSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now }
 });
 
+const Message = mongoose.model('Message', messageSchema);
+
+// Define contact schema and model
 const contactSchema = new mongoose.Schema({
     name: String,
     number: String
 });
 
-const Message = mongoose.model('Message', messageSchema);
 const Contact = mongoose.model('Contact', contactSchema);
 
 // Endpoint to handle incoming messages from customers/drivers
@@ -133,25 +129,15 @@ app.get('/messages', (req, res) => {
 
 // Endpoint to fetch all contacts
 app.get('/contacts', (req, res) => {
-    Contact.find().sort({ name: 1 }).then(contacts => res.json(contacts)).catch(err => res.status(500).send(err));
+    Contact.find().then(contacts => res.json(contacts)).catch(err => res.status(500).send(err));
 });
 
 // Endpoint to add a new contact
 app.post('/contacts', (req, res) => {
     const { name, number } = req.body;
-
-    if (!name || !number) {
-        console.error('Name or number is missing');
-        return res.status(400).json({ error: 'Name or number is missing' });
-    }
-
     const newContact = new Contact({ name, number });
-    newContact.save().then(() => {
-        res.status(200).json({ message: 'Contact added' });
-    }).catch(err => {
-        console.error('Error saving contact to database:', err);
-        res.status(500).json({ error: 'Database error', details: err.message });
-    });
+    newContact.save().then(() => res.status(201).json({ message: 'Contact added' }))
+                     .catch(err => res.status(500).json({ error: 'Error adding contact', details: err.message }));
 });
 
 app.get('/', (req, res) => {
