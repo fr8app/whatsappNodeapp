@@ -5,6 +5,13 @@ const { MessagingResponse } = require('twilio').twiml;
 const twilio = require('twilio');
 const path = require('path');
 const WebSocket = require('ws');
+const contactSchema = new mongoose.Schema({
+    name: String,
+    number: String
+});
+
+const Contact = mongoose.model('Contact', contactSchema);
+
 
 const app = express();
 
@@ -20,6 +27,34 @@ const employees = [
     { name: 'Guillermo', number: '+12019264229' },
     // Add more employees here
 ];
+
+// Endpoint to add a new contact
+app.post('/contacts', (req, res) => {
+    const { name, number } = req.body;
+    const newContact = new Contact({ name, number });
+    newContact.save().then(() => {
+        res.status(200).json({ message: 'Contact added' });
+    }).catch(err => {
+        console.error('Error adding contact:', err);
+        res.status(500).json({ error: 'Database error', details: err.message });
+    });
+});
+
+// Endpoint to fetch all contacts
+app.get('/contacts', (req, res) => {
+    Contact.find().sort({ name: 1 }).then(contacts => res.json(contacts)).catch(err => res.status(500).send(err));
+});
+
+// Endpoint to delete a contact
+app.delete('/contacts/:id', (req, res) => {
+    Contact.findByIdAndDelete(req.params.id).then(() => {
+        res.status(200).json({ message: 'Contact deleted' });
+    }).catch(err => {
+        console.error('Error deleting contact:', err);
+        res.status(500).json({ error: 'Database error', details: err.message });
+    });
+});
+
 
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true });
