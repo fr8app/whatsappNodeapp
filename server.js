@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { MessagingResponse } = require('twilio').twiml;
 const twilio = require('twilio');
 const path = require('path');
+const WebSocket = require('ws');
 
 const app = express();
 
@@ -54,6 +55,13 @@ app.post('/incoming', (req, res) => {
               .catch(err => console.error(`Error sending message to ${employee.number}:`, err));
         });
 
+        // Send the message to all connected WebSocket clients
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ from, message }));
+            }
+        });
+
         const twiml = new MessagingResponse();
         res.writeHead(200, { 'Content-Type': 'text/xml' });
         res.end(twiml.toString());
@@ -89,6 +97,13 @@ app.post('/send', (req, res) => {
         const newMessage = new Message({ from, to, body: message });
         newMessage.save().then(() => {
             res.status(200).json({ message: 'Message sent' });
+
+            // Send the message to all connected WebSocket clients
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ from, to, message }));
+                }
+            });
         }).catch(saveError => {
             // Log the save error details
             console.error('Error saving outgoing message to database:', saveError);
@@ -105,8 +120,6 @@ app.post('/send', (req, res) => {
     });
 });
 
-
-
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
     Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => res.status(500).send(err));
@@ -116,7 +129,19 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-const port = 8080; // Change this line to use port 8080
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+const server = app.listen(8080, () => {
+    console.log(`Server is running on port 8080`);
+});
+
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+    });
+    ws.on('close', () => {
+        console.log('Client disconnected');
+    });
 });
