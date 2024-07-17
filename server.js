@@ -24,7 +24,7 @@ const employees = [
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Define schemas and models
+// Define message schema and model
 const messageSchema = new mongoose.Schema({
     from: String,
     to: String,
@@ -34,7 +34,7 @@ const messageSchema = new mongoose.Schema({
 
 const contactSchema = new mongoose.Schema({
     name: String,
-    number: String,
+    number: String
 });
 
 const Message = mongoose.model('Message', messageSchema);
@@ -64,7 +64,7 @@ app.post('/incoming', (req, res) => {
         // Send the message to all connected WebSocket clients
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ from, body: message }));
+                client.send(JSON.stringify({ from, message }));
             }
         });
 
@@ -140,17 +140,17 @@ app.get('/contacts', (req, res) => {
 app.post('/contacts', (req, res) => {
     const { name, number } = req.body;
 
-    // Validate input
     if (!name || !number) {
-        return res.status(400).json({ error: 'Name and number are required' });
+        console.error('Name or number is missing');
+        return res.status(400).json({ error: 'Name or number is missing' });
     }
 
     const newContact = new Contact({ name, number });
     newContact.save().then(() => {
-        res.status(201).json({ message: 'Contact added' });
+        res.status(200).json({ message: 'Contact added' });
     }).catch(err => {
-        console.error('Error adding contact to database:', err);
-        res.status(500).json({ error: 'Error adding contact to database' });
+        console.error('Error saving contact to database:', err);
+        res.status(500).json({ error: 'Database error', details: err.message });
     });
 });
 
