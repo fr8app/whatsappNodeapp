@@ -128,25 +128,21 @@
     </div>
     
     <script>
-        const contacts = [
-            { name: 'John Smith', number: '+1234567890' },
-            { name: 'Jane Doe', number: '+1987654321' },
-            { name: 'Bob Johnson', number: '+1122334455' },
-            { name: 'Samantha Lee', number: '+1222333444' },
-            { name: 'William Chen', number: '+1333444555' },
-            { name: 'Emily Kim', number: '+1444555666' }
-        ];
-
         document.addEventListener('DOMContentLoaded', (event) => {
-            // Populate contact list
-            const contactList = document.querySelector('#contacts ul');
-            contacts.forEach(contact => {
-                const li = document.createElement('li');
-                li.textContent = contact.name;
-                li.dataset.number = contact.number;
-                li.addEventListener('click', () => loadChat(contact.number, contact.name));
-                contactList.appendChild(li);
-            });
+            // Fetch and display contacts
+            fetch('/contacts')
+                .then(response => response.json())
+                .then(contacts => {
+                    const contactList = document.querySelector('#contacts ul');
+                    contacts.forEach(contact => {
+                        const li = document.createElement('li');
+                        li.textContent = contact;
+                        li.dataset.number = contact;
+                        li.addEventListener('click', () => loadChat(contact, contact));
+                        contactList.appendChild(li);
+                    });
+                })
+                .catch(error => console.error('Error fetching contacts:', error));
 
             // WebSocket setup
             const ws = new WebSocket('ws://' + window.location.host);
@@ -194,6 +190,20 @@
         const loadChat = (number, name) => {
             document.querySelector('#chatHeader').textContent = `Chat with ${name}`;
             document.querySelector('input#to').value = number;
+
+            // Fetch and display chat messages for the selected contact
+            fetch('/messages')
+                .then(response => response.json())
+                .then(messages => {
+                    const chat = document.getElementById('chatMessages');
+                    chat.innerHTML = ''; // Clear the chat window
+                    messages.forEach(msg => {
+                        if (msg.from === number || msg.to === number) {
+                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                        }
+                    });
+                })
+                .catch(error => console.error('Error fetching messages:', error));
         };
 
         const addMessage = (from, message, isOutgoing) => {
@@ -211,3 +221,4 @@
     </script>
 </body>
 </html>
+
