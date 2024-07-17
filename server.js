@@ -5,13 +5,6 @@ const { MessagingResponse } = require('twilio').twiml;
 const twilio = require('twilio');
 const path = require('path');
 const WebSocket = require('ws');
-const contactSchema = new mongoose.Schema({
-    name: String,
-    number: String
-});
-
-const Contact = mongoose.model('Contact', contactSchema);
-
 
 const app = express();
 
@@ -28,34 +21,6 @@ const employees = [
     // Add more employees here
 ];
 
-// Endpoint to add a new contact
-app.post('/contacts', (req, res) => {
-    const { name, number } = req.body;
-    const newContact = new Contact({ name, number });
-    newContact.save().then(() => {
-        res.status(200).json({ message: 'Contact added' });
-    }).catch(err => {
-        console.error('Error adding contact:', err);
-        res.status(500).json({ error: 'Database error', details: err.message });
-    });
-});
-
-// Endpoint to fetch all contacts
-app.get('/contacts', (req, res) => {
-    Contact.find().sort({ name: 1 }).then(contacts => res.json(contacts)).catch(err => res.status(500).send(err));
-});
-
-// Endpoint to delete a contact
-app.delete('/contacts/:id', (req, res) => {
-    Contact.findByIdAndDelete(req.params.id).then(() => {
-        res.status(200).json({ message: 'Contact deleted' });
-    }).catch(err => {
-        console.error('Error deleting contact:', err);
-        res.status(500).json({ error: 'Database error', details: err.message });
-    });
-});
-
-
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true });
 
@@ -68,6 +33,30 @@ const messageSchema = new mongoose.Schema({
 });
 
 const Message = mongoose.model('Message', messageSchema);
+
+// Define contact schema and model
+const contactSchema = new mongoose.Schema({
+    name: String,
+    number: String
+});
+
+const Contact = mongoose.model('Contact', contactSchema);
+
+// WebSocket setup
+const server = app.listen(8080, () => {
+    console.log(`Server is running on port 8080`);
+});
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+    });
+    ws.on('close', () => {
+        console.log('Client disconnected');
+    });
+});
 
 // Endpoint to handle incoming messages from customers/drivers
 app.post('/incoming', (req, res) => {
@@ -93,7 +82,7 @@ app.post('/incoming', (req, res) => {
         // Send the message to all connected WebSocket clients
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ from, message }));
+                client.send(JSON.stringify({ from, body: message }));
             }
         });
 
@@ -136,7 +125,7 @@ app.post('/send', (req, res) => {
             // Send the message to all connected WebSocket clients
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ from, to, message }));
+                    client.send(JSON.stringify({ from, to, body: message }));
                 }
             });
         }).catch(saveError => {
@@ -160,23 +149,23 @@ app.get('/messages', (req, res) => {
     Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => res.status(500).send(err));
 });
 
+// Endpoint to fetch all contacts
+app.get('/contacts', (req, res) => {
+    Contact.find().then(contacts => res.json(contacts)).catch(err => res.status(500).send(err));
+});
+
+// Endpoint to add a new contact
+app.post('/contacts', (req, res) => {
+    const { name, number } = req.body;
+    const newContact = new Contact({ name, number });
+    newContact.save().then(contact => res.status(201).json(contact)).catch(err => res.status(500).send(err));
+});
+
+// Endpoint to delete a contact
+app.delete('/contacts/:id', (req, res) => {
+    Contact.findByIdAndDelete(req.params.id).then(() => res.status(204).send()).catch(err => res.status(500).send(err));
+});
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-const server = app.listen(8080, () => {
-    console.log(`Server is running on port 8080`);
-});
-
-// Create WebSocket server
-const wss = new WebSocket.Server({ server });
-
-wss.on('connection', (ws) => {
-    console.log('Client connected');
-    ws.on('message', (message) => {
-        console.log('Received:', message);
-    });
-    ws.on('close', () => {
-        console.log('Client disconnected');
-    });
 });
