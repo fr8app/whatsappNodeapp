@@ -15,6 +15,12 @@ const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
 const authToken = '287c05680510f3515939b3b79eb0be97';
 const client = new twilio(accountSid, authToken);
 
+const employees = [
+    { name: 'Nivedita', number: '+919922637115' },
+    { name: 'Guillermo', number: '+12019264229' },
+    // Add more employees here
+];
+
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true });
 
@@ -27,14 +33,6 @@ const messageSchema = new mongoose.Schema({
 });
 
 const Message = mongoose.model('Message', messageSchema);
-
-// Define contact schema and model
-const contactSchema = new mongoose.Schema({
-    name: String,
-    number: String
-});
-
-const Contact = mongoose.model('Contact', contactSchema);
 
 // Endpoint to handle incoming messages from customers/drivers
 app.post('/incoming', (req, res) => {
@@ -125,19 +123,6 @@ app.post('/send', (req, res) => {
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
     Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => res.status(500).send(err));
-});
-
-// Endpoint to fetch all contacts
-app.get('/contacts', (req, res) => {
-    Contact.find().then(contacts => res.json(contacts)).catch(err => res.status(500).send(err));
-});
-
-// Endpoint to add a new contact
-app.post('/contacts', (req, res) => {
-    const { name, number } = req.body;
-    const newContact = new Contact({ name, number });
-    newContact.save().then(() => res.status(201).json({ message: 'Contact added' }))
-                     .catch(err => res.status(500).json({ error: 'Error adding contact', details: err.message }));
 });
 
 app.get('/', (req, res) => {
