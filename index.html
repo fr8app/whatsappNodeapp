@@ -106,6 +106,31 @@
         #sendMessage button:hover {
             background-color: #064e48;
         }
+        #groupSection {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px;
+        }
+        #groupSection input {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+        }
+        #groupSection button {
+            padding: 10px;
+            background-color: #075e54;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #groupSection button:hover {
+            background-color: #064e48;
+        }
     </style>
 </head>
 <body>
@@ -124,11 +149,11 @@
                 <textarea id="message" placeholder="Enter message" required></textarea>
                 <button type="submit">Send</button>
             </form>
-            <form id="createGroup">
-                <input type="text" id="groupName" placeholder="Enter group name" required>
-                <input type="text" id="groupMembers" placeholder="Enter group members, comma separated" required>
-                <button type="submit">Create Group</button>
-            </form>
+            <div id="groupSection">
+                <input type="text" id="groupName" placeholder="Enter group name">
+                <input type="text" id="groupMembers" placeholder="Enter member numbers (comma separated)">
+                <button id="createGroupButton">Create Group</button>
+            </div>
         </div>
     </div>
     
@@ -172,6 +197,7 @@
             e.preventDefault();
             const number = document.querySelector('input#to').value;
             const message = document.querySelector('textarea#message').value;
+            const isGroup = number.startsWith('group:');
 
             fetch('/send', {
                 method: 'POST',
@@ -179,7 +205,8 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    to: number,
+                    to: isGroup ? null : number,
+                    group: isGroup ? number.replace('group:', '') : null,
                     message: message
                 })
             }).then(response => response.json()).then(data => {
@@ -192,10 +219,9 @@
             });
         });
 
-        document.querySelector('form#createGroup').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const name = document.querySelector('input#groupName').value;
-            const members = document.querySelector('input#groupMembers').value.split(',').map(m => m.trim());
+        document.querySelector('#createGroupButton').addEventListener('click', function (e) {
+            const groupName = document.querySelector('input#groupName').value;
+            const groupMembers = document.querySelector('input#groupMembers').value.split(',');
 
             fetch('/group', {
                 method: 'POST',
@@ -203,19 +229,37 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    name: name,
-                    members: members
+                    name: groupName,
+                    members: groupMembers
                 })
             }).then(response => response.json()).then(data => {
-                if (data.message) {
+                if (data.groupId) {
                     alert(`Group created with ID: ${data.groupId}`);
                     document.querySelector('input#groupName').value = '';
                     document.querySelector('input#groupMembers').value = '';
+                    loadContacts(); // Refresh contacts to include new group
                 }
             }).catch(error => {
                 console.error('Error:', error);
             });
         });
+
+        const loadContacts = () => {
+            fetch('/contacts')
+                .then(response => response.json())
+                .then(contacts => {
+                    const contactList = document.getElementById('contactList');
+                    contactList.innerHTML = ''; // Clear current contacts
+                    contacts.forEach(contact => {
+                        const li = document.createElement('li');
+                        li.textContent = contact.number;
+                        li.dataset.number = contact.number;
+                        li.addEventListener('click', () => loadChat(contact.number));
+                        contactList.appendChild(li);
+                    });
+                })
+                .catch(error => console.error('Error fetching contacts:', error));
+        };
 
         const loadChat = (number) => {
             document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
@@ -230,7 +274,7 @@
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
-                        if (msg.from === number || msg.to === number) {
+                        if (msg.from === number || msg.to === number || (msg.group && `group:${msg.group}` === number)) {
                             addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                         }
                     });
@@ -246,10 +290,6 @@
             chat.appendChild(msgDiv);
             chat.scrollTop = chat.scrollHeight; // Scroll to bottom
         };
-
-        // Example of how you could add an incoming message for testing
-        // addMessage('whatsapp:+1234567890', 'Hello!');
-        // addMessage('whatsapp:+0987654321', 'Hi there!');
     </script>
 </body>
 </html>
