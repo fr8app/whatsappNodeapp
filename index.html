@@ -106,31 +106,6 @@
         #sendMessage button:hover {
             background-color: #064e48;
         }
-        #groupSection {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 10px;
-        }
-        #groupSection input {
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            outline: none;
-        }
-        #groupSection button {
-            padding: 10px;
-            background-color: #075e54;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        #groupSection button:hover {
-            background-color: #064e48;
-        }
     </style>
 </head>
 <body>
@@ -149,11 +124,11 @@
                 <textarea id="message" placeholder="Enter message" required></textarea>
                 <button type="submit">Send</button>
             </form>
-            <div id="groupSection">
-                <input type="text" id="groupName" placeholder="Enter group name">
-                <input type="text" id="groupMembers" placeholder="Enter member numbers (comma separated)">
-                <button id="createGroupButton">Create Group</button>
-            </div>
+            <form id="createGroup">
+                <input type="text" id="groupName" placeholder="Enter group name" required>
+                <input type="text" id="groupMembers" placeholder="Enter member numbers (comma separated)" required>
+                <button type="submit">Create Group</button>
+            </form>
         </div>
     </div>
     
@@ -178,8 +153,8 @@
             const ws = new WebSocket('ws://' + window.location.host);
 
             ws.onmessage = (event) => {
-                const { from, message } = JSON.parse(event.data);
-                addMessage(from, message, from === 'whatsapp:+18434843838');
+                const { from, message, group } = JSON.parse(event.data);
+                addMessage(from, message, from === 'whatsapp:+18434843838', group);
             };
 
             // Fetch and display the chat history
@@ -187,7 +162,7 @@
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
-                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838', msg.group);
                     });
                 })
                 .catch(error => console.error('Error fetching messages:', error));
@@ -197,7 +172,6 @@
             e.preventDefault();
             const number = document.querySelector('input#to').value;
             const message = document.querySelector('textarea#message').value;
-            const isGroup = number.startsWith('group:');
 
             fetch('/send', {
                 method: 'POST',
@@ -205,8 +179,7 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    to: isGroup ? null : number,
-                    group: isGroup ? number.replace('group:', '') : null,
+                    to: number,
                     message: message
                 })
             }).then(response => response.json()).then(data => {
@@ -219,9 +192,10 @@
             });
         });
 
-        document.querySelector('#createGroupButton').addEventListener('click', function (e) {
+        document.querySelector('form#createGroup').addEventListener('submit', function (e) {
+            e.preventDefault();
             const groupName = document.querySelector('input#groupName').value;
-            const groupMembers = document.querySelector('input#groupMembers').value.split(',');
+            const groupMembers = document.querySelector('input#groupMembers').value.split(',').map(num => num.trim());
 
             fetch('/group', {
                 method: 'POST',
@@ -235,54 +209,46 @@
             }).then(response => response.json()).then(data => {
                 if (data.groupId) {
                     alert(`Group created with ID: ${data.groupId}`);
-                    document.querySelector('input#groupName').value = '';
-                    document.querySelector('input#groupMembers').value = '';
-                    loadContacts(); // Refresh contacts to include new group
+                    const contactList = document.getElementById('contactList');
+                    const li = document.createElement('li');
+                    li.textContent = groupName;
+                    li.dataset.number = `group:${data.groupId}`;
+                    li.addEventListener('click', () => loadChat(`group:${data.groupId}`));
+                    contactList.appendChild(li);
                 }
             }).catch(error => {
                 console.error('Error:', error);
             });
         });
 
-        const loadContacts = () => {
-            fetch('/contacts')
-                .then(response => response.json())
-                .then(contacts => {
-                    const contactList = document.getElementById('contactList');
-                    contactList.innerHTML = ''; // Clear current contacts
-                    contacts.forEach(contact => {
-                        const li = document.createElement('li');
-                        li.textContent = contact.number;
-                        li.dataset.number = contact.number;
-                        li.addEventListener('click', () => loadChat(contact.number));
-                        contactList.appendChild(li);
-                    });
-                })
-                .catch(error => console.error('Error fetching contacts:', error));
-        };
-
         const loadChat = (number) => {
             document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
-            document.querySelector('input#to').value = number;
+            if (number.startsWith('group:')) {
+                document.querySelector('input#to').value = '';
+                document.querySelector('input#group').value = number.split(':')[1];
+            } else {
+                document.querySelector('input#to').value = number;
+                document.querySelector('input#group').value = '';
+            }
 
             // Clear the chat messages
             const chat = document.getElementById('chatMessages');
             chat.innerHTML = '';
 
-            // Fetch and display the chat history for the selected contact
+            // Fetch and display the chat history for the selected contact or group
             fetch('/messages')
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
-                        if (msg.from === number || msg.to === number || (msg.group && `group:${msg.group}` === number)) {
-                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                        if ((msg.from === number || msg.to === number) || (msg.group === number.split(':')[1])) {
+                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838', msg.group);
                         }
                     });
                 })
                 .catch(error => console.error('Error fetching messages:', error));
         };
 
-        const addMessage = (from, message, isOutgoing) => {
+        const addMessage = (from, message, isOutgoing, group) => {
             const chat = document.getElementById('chatMessages');
             const msgDiv = document.createElement('div');
             msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
@@ -290,6 +256,10 @@
             chat.appendChild(msgDiv);
             chat.scrollTop = chat.scrollHeight; // Scroll to bottom
         };
+
+        // Example of how you could add an incoming message for testing
+        // addMessage('whatsapp:+1234567890', 'Hello!');
+        // addMessage('whatsapp:+0987654321', 'Hi there!');
     </script>
 </body>
 </html>
