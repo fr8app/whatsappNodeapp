@@ -106,32 +106,6 @@
         #sendMessage button:hover {
             background-color: #064e48;
         }
-        #createGroup {
-            display: flex;
-            border-top: 1px solid #ddd;
-            padding: 10px;
-            background-color: #fafafa;
-        }
-        #createGroup input {
-            flex: 1;
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            outline: none;
-        }
-        #createGroup button {
-            padding: 10px;
-            background-color: #075e54;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        #createGroup button:hover {
-            background-color: #064e48;
-        }
     </style>
 </head>
 <body>
@@ -146,11 +120,11 @@
             <div id="chatHeader">Chat</div>
             <div id="chatMessages"></div>
             <form id="sendMessage">
-                <input type="text" id="to" placeholder="Enter number" required>
+                <input type="hidden" id="to" required>
                 <textarea id="message" placeholder="Enter message" required></textarea>
                 <button type="submit">Send</button>
             </form>
-            <form id="createGroup">
+            <form id="createGroup" style="display: flex; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
                 <input type="text" id="groupName" placeholder="Enter group name" required>
                 <input type="text" id="groupMembers" placeholder="Enter member numbers, separated by commas" required>
                 <button type="submit">Create Group</button>
@@ -168,9 +142,9 @@
                     contacts.forEach(contact => {
                         const li = document.createElement('li');
                         li.textContent = contact.name || contact.number;
-                        li.dataset.id = contact.groupId || contact.number;
-                        li.dataset.isGroup = !!contact.groupId;
-                        li.addEventListener('click', () => loadChat(contact.groupId || contact.number, !!contact.groupId));
+                        li.dataset.number = contact.number;
+                        li.dataset.isGroup = contact.isGroup || false;
+                        li.addEventListener('click', () => loadChat(contact.number, contact.isGroup || false));
                         contactList.appendChild(li);
                     });
                 })
@@ -180,8 +154,8 @@
             const ws = new WebSocket('ws://' + window.location.host);
 
             ws.onmessage = (event) => {
-                const { from, to, message } = JSON.parse(event.data);
-                addMessage(from, message, from === 'whatsapp:+18434843838');
+                const { from, message, to } = JSON.parse(event.data);
+                addMessage(from, message, to === 'whatsapp:+18434843838');
             };
 
             // Fetch and display the chat history
@@ -195,11 +169,11 @@
                 .catch(error => console.error('Error fetching messages:', error));
         });
 
-        document.querySelector('#sendMessage').addEventListener('submit', function (e) {
+        document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
             e.preventDefault();
             const number = document.querySelector('input#to').value;
             const message = document.querySelector('textarea#message').value;
-            const isGroup = document.querySelector('input#to').dataset.isGroup;
+            const isGroup = document.querySelector('input#to').dataset.isGroup === 'true';
 
             fetch('/send', {
                 method: 'POST',
@@ -207,9 +181,9 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    to: !isGroup ? number : undefined,
-                    groupId: isGroup ? number : undefined,
-                    message: message
+                    to: number,
+                    message: message,
+                    isGroup: isGroup
                 })
             }).then(response => response.json()).then(data => {
                 if (data.message) {
@@ -221,19 +195,19 @@
             });
         });
 
-        document.querySelector('#createGroup').addEventListener('submit', function (e) {
+        document.querySelector('form#createGroup').addEventListener('submit', function (e) {
             e.preventDefault();
-            const groupName = document.querySelector('input#groupName').value;
-            const groupMembers = document.querySelector('input#groupMembers').value.split(',');
+            const name = document.querySelector('input#groupName').value;
+            const members = document.querySelector('input#groupMembers').value.split(',');
 
-            fetch('/groups', {
+            fetch('/create-group', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    name: groupName,
-                    members: groupMembers
+                    name: name,
+                    members: members
                 })
             }).then(response => response.json()).then(data => {
                 if (data.group) {
@@ -241,15 +215,14 @@
                     location.reload();
                 }
             }).catch(error => {
-                console.error('Error:', error);
+                console.error('Error creating group:', error);
             });
         });
 
-        const loadChat = (id, isGroup) => {
-            document.querySelector('#chatHeader').textContent = `Chat with ${id}`;
-            const toInput = document.querySelector('input#to');
-            toInput.value = id;
-            toInput.dataset.isGroup = isGroup;
+        const loadChat = (number, isGroup) => {
+            document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
+            document.querySelector('input#to').value = number;
+            document.querySelector('input#to').dataset.isGroup = isGroup;
 
             // Clear the chat messages
             const chat = document.getElementById('chatMessages');
@@ -260,7 +233,7 @@
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
-                        if (msg.group && msg.group._id === id || (!msg.group && (msg.from === id || msg.to === id))) {
+                        if (msg.from === number || msg.to === number) {
                             addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                         }
                     });
