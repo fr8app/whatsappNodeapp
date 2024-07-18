@@ -167,9 +167,10 @@
                     const contactList = document.getElementById('contactList');
                     contacts.forEach(contact => {
                         const li = document.createElement('li');
-                        li.textContent = contact.number || contact.groupName;
-                        li.dataset.number = contact.number || contact.groupId;
-                        li.addEventListener('click', () => loadChat(contact.number || contact.groupId));
+                        li.textContent = contact.name || contact.number;
+                        li.dataset.id = contact.groupId || contact.number;
+                        li.dataset.isGroup = !!contact.groupId;
+                        li.addEventListener('click', () => loadChat(contact.groupId || contact.number, !!contact.groupId));
                         contactList.appendChild(li);
                     });
                 })
@@ -179,11 +180,8 @@
             const ws = new WebSocket('ws://' + window.location.host);
 
             ws.onmessage = (event) => {
-                const { from, message, to } = JSON.parse(event.data);
-                const currentChat = document.querySelector('#chatHeader').textContent.replace('Chat with ', '');
-                if (currentChat === to || currentChat === from) {
-                    addMessage(from, message, from === 'whatsapp:+18434843838');
-                }
+                const { from, to, message } = JSON.parse(event.data);
+                addMessage(from, message, from === 'whatsapp:+18434843838');
             };
 
             // Fetch and display the chat history
@@ -191,10 +189,7 @@
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
-                        const currentChat = document.querySelector('#chatHeader').textContent.replace('Chat with ', '');
-                        if (msg.from === currentChat || msg.to === currentChat) {
-                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                        }
+                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                     });
                 })
                 .catch(error => console.error('Error fetching messages:', error));
@@ -204,6 +199,7 @@
             e.preventDefault();
             const number = document.querySelector('input#to').value;
             const message = document.querySelector('textarea#message').value;
+            const isGroup = document.querySelector('input#to').dataset.isGroup;
 
             fetch('/send', {
                 method: 'POST',
@@ -211,7 +207,8 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    to: number,
+                    to: !isGroup ? number : undefined,
+                    groupId: isGroup ? number : undefined,
                     message: message
                 })
             }).then(response => response.json()).then(data => {
@@ -229,47 +226,41 @@
             const groupName = document.querySelector('input#groupName').value;
             const groupMembers = document.querySelector('input#groupMembers').value.split(',');
 
-            fetch('/createGroup', {
+            fetch('/groups', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    groupName: groupName,
+                    name: groupName,
                     members: groupMembers
                 })
             }).then(response => response.json()).then(data => {
-                if (data.groupId) {
-                    alert(`Group created with ID: ${data.groupId}`);
-                    const contactList = document.getElementById('contactList');
-                    const li = document.createElement('li');
-                    li.textContent = groupName;
-                    li.dataset.number = data.groupId;
-                    li.addEventListener('click', () => loadChat(data.groupId));
-                    contactList.appendChild(li);
-                    document.querySelector('input#groupName').value = '';
-                    document.querySelector('input#groupMembers').value = '';
+                if (data.group) {
+                    alert(`Group created with ID: ${data.group._id}`);
+                    location.reload();
                 }
             }).catch(error => {
                 console.error('Error:', error);
             });
         });
 
-        const loadChat = (numberOrGroupId) => {
-            document.querySelector('#chatHeader').textContent = `Chat with ${numberOrGroupId}`;
+        const loadChat = (id, isGroup) => {
+            document.querySelector('#chatHeader').textContent = `Chat with ${id}`;
             const toInput = document.querySelector('input#to');
-            if (toInput) toInput.value = numberOrGroupId;
+            toInput.value = id;
+            toInput.dataset.isGroup = isGroup;
 
             // Clear the chat messages
             const chat = document.getElementById('chatMessages');
             chat.innerHTML = '';
 
-            // Fetch and display the chat history for the selected contact
+            // Fetch and display the chat history for the selected contact or group
             fetch('/messages')
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
-                        if (msg.from === numberOrGroupId || msg.to === numberOrGroupId) {
+                        if (msg.group && msg.group._id === id || (!msg.group && (msg.from === id || msg.to === id))) {
                             addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                         }
                     });
@@ -285,6 +276,10 @@
             chat.appendChild(msgDiv);
             chat.scrollTop = chat.scrollHeight; // Scroll to bottom
         };
+
+        // Example of how you could add an incoming message for testing
+        // addMessage('whatsapp:+1234567890', 'Hello!');
+        // addMessage('whatsapp:+0987654321', 'Hi there!');
     </script>
 </body>
 </html>
