@@ -106,6 +106,32 @@
         #sendMessage button:hover {
             background-color: #064e48;
         }
+        #createGroup {
+            display: flex;
+            border-top: 1px solid #ddd;
+            padding: 10px;
+            background-color: #fafafa;
+        }
+        #createGroup input {
+            flex: 1;
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+        }
+        #createGroup button {
+            padding: 10px;
+            background-color: #075e54;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #createGroup button:hover {
+            background-color: #064e48;
+        }
     </style>
 </head>
 <body>
@@ -126,7 +152,7 @@
             </form>
             <form id="createGroup">
                 <input type="text" id="groupName" placeholder="Enter group name" required>
-                <input type="text" id="groupMembers" placeholder="Enter member numbers (comma separated)" required>
+                <input type="text" id="groupMembers" placeholder="Enter member numbers, separated by commas" required>
                 <button type="submit">Create Group</button>
             </form>
         </div>
@@ -141,9 +167,9 @@
                     const contactList = document.getElementById('contactList');
                     contacts.forEach(contact => {
                         const li = document.createElement('li');
-                        li.textContent = contact.number;
-                        li.dataset.number = contact.number;
-                        li.addEventListener('click', () => loadChat(contact.number));
+                        li.textContent = contact.number || contact.groupName;
+                        li.dataset.number = contact.number || contact.groupId;
+                        li.addEventListener('click', () => loadChat(contact.number || contact.groupId));
                         contactList.appendChild(li);
                     });
                 })
@@ -153,8 +179,11 @@
             const ws = new WebSocket('ws://' + window.location.host);
 
             ws.onmessage = (event) => {
-                const { from, message, group } = JSON.parse(event.data);
-                addMessage(from, message, from === 'whatsapp:+18434843838', group);
+                const { from, message, to } = JSON.parse(event.data);
+                const currentChat = document.querySelector('#chatHeader').textContent.replace('Chat with ', '');
+                if (currentChat === to || currentChat === from) {
+                    addMessage(from, message, from === 'whatsapp:+18434843838');
+                }
             };
 
             // Fetch and display the chat history
@@ -162,13 +191,16 @@
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
-                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838', msg.group);
+                        const currentChat = document.querySelector('#chatHeader').textContent.replace('Chat with ', '');
+                        if (msg.from === currentChat || msg.to === currentChat) {
+                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                        }
                     });
                 })
                 .catch(error => console.error('Error fetching messages:', error));
         });
 
-        document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
+        document.querySelector('#sendMessage').addEventListener('submit', function (e) {
             e.preventDefault();
             const number = document.querySelector('input#to').value;
             const message = document.querySelector('textarea#message').value;
@@ -192,18 +224,18 @@
             });
         });
 
-        document.querySelector('form#createGroup').addEventListener('submit', function (e) {
+        document.querySelector('#createGroup').addEventListener('submit', function (e) {
             e.preventDefault();
             const groupName = document.querySelector('input#groupName').value;
-            const groupMembers = document.querySelector('input#groupMembers').value.split(',').map(num => num.trim());
+            const groupMembers = document.querySelector('input#groupMembers').value.split(',');
 
-            fetch('/group', {
+            fetch('/createGroup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    name: groupName,
+                    groupName: groupName,
                     members: groupMembers
                 })
             }).then(response => response.json()).then(data => {
@@ -212,43 +244,40 @@
                     const contactList = document.getElementById('contactList');
                     const li = document.createElement('li');
                     li.textContent = groupName;
-                    li.dataset.number = `group:${data.groupId}`;
-                    li.addEventListener('click', () => loadChat(`group:${data.groupId}`));
+                    li.dataset.number = data.groupId;
+                    li.addEventListener('click', () => loadChat(data.groupId));
                     contactList.appendChild(li);
+                    document.querySelector('input#groupName').value = '';
+                    document.querySelector('input#groupMembers').value = '';
                 }
             }).catch(error => {
                 console.error('Error:', error);
             });
         });
 
-        const loadChat = (number) => {
-            document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
-            if (number.startsWith('group:')) {
-                document.querySelector('input#to').value = '';
-                document.querySelector('input#group').value = number.split(':')[1];
-            } else {
-                document.querySelector('input#to').value = number;
-                document.querySelector('input#group').value = '';
-            }
+        const loadChat = (numberOrGroupId) => {
+            document.querySelector('#chatHeader').textContent = `Chat with ${numberOrGroupId}`;
+            const toInput = document.querySelector('input#to');
+            if (toInput) toInput.value = numberOrGroupId;
 
             // Clear the chat messages
             const chat = document.getElementById('chatMessages');
             chat.innerHTML = '';
 
-            // Fetch and display the chat history for the selected contact or group
+            // Fetch and display the chat history for the selected contact
             fetch('/messages')
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
-                        if ((msg.from === number || msg.to === number) || (msg.group === number.split(':')[1])) {
-                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838', msg.group);
+                        if (msg.from === numberOrGroupId || msg.to === numberOrGroupId) {
+                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                         }
                     });
                 })
                 .catch(error => console.error('Error fetching messages:', error));
         };
 
-        const addMessage = (from, message, isOutgoing, group) => {
+        const addMessage = (from, message, isOutgoing) => {
             const chat = document.getElementById('chatMessages');
             const msgDiv = document.createElement('div');
             msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
@@ -256,10 +285,6 @@
             chat.appendChild(msgDiv);
             chat.scrollTop = chat.scrollHeight; // Scroll to bottom
         };
-
-        // Example of how you could add an incoming message for testing
-        // addMessage('whatsapp:+1234567890', 'Hello!');
-        // addMessage('whatsapp:+0987654321', 'Hi there!');
     </script>
 </body>
 </html>
