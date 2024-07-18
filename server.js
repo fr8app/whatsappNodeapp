@@ -72,10 +72,11 @@ app.post('/incoming', (req, res) => {
     });
 });
 
+
 // Endpoint for employees to send messages to customers/drivers
 app.post('/send', (req, res) => {
     const { message, to } = req.body;
-    const from = standardizeNumber('whatsapp:+18434843838'); // Your Twilio WhatsApp number
+    const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
 
     console.log(`Sending message: ${message} to: ${to}`);
 
@@ -86,7 +87,7 @@ app.post('/send', (req, res) => {
 
     client.messages.create({
         body: message,
-        from,
+        from: from, // Ensure this is a Twilio WhatsApp number
         to: `whatsapp:${standardizeNumber(to)}`
     }).then(sentMessage => {
         console.log(`Message sent with SID: ${sentMessage.sid}`);
@@ -109,6 +110,9 @@ app.post('/send', (req, res) => {
         res.status(500).json({ error: 'Twilio error', details: error.message });
     });
 });
+
+
+
 
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
