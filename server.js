@@ -12,7 +12,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
-const authToken = 'your_auth_token'; // Use the correct Twilio auth token here
+const authToken = '5f3f80cea5774a15530e44d1f77f5b5c';
 const client = new twilio(accountSid, authToken);
 
 const employees = [
@@ -31,18 +31,15 @@ const messageSchema = new mongoose.Schema({
     from: String,
     to: String,
     body: String,
-    date: { type: Date, default: Date.now },
-    group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null }
+    date: { type: Date, default: Date.now }
 });
 
-const Message = mongoose.model('Message', messageSchema);
-
-// Define group schema and model
 const groupSchema = new mongoose.Schema({
     name: String,
     members: [String]
 });
 
+const Message = mongoose.model('Message', messageSchema);
 const Group = mongoose.model('Group', groupSchema);
 
 // Standardize contact number
@@ -83,49 +80,49 @@ app.post('/incoming', (req, res) => {
 
 // Endpoint for employees to send messages to customers/drivers
 app.post('/send', (req, res) => {
-    const { message, to, groupId } = req.body;
+    const { message, to, isGroup } = req.body;
     const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
 
     console.log(`Sending message: ${message} to: ${to}`);
 
-    if (!message || (!to && !groupId)) {
+    if (!message || !to) {
         console.error('Message or recipient number is missing');
         return res.status(400).json({ error: 'Message or recipient number is missing' });
     }
 
-    if (groupId) {
-        Group.findById(groupId).then(group => {
+    const sendToGroup = async (groupId) => {
+        try {
+            const group = await Group.findById(groupId);
             if (!group) {
                 return res.status(404).json({ error: 'Group not found' });
             }
 
-            const promises = group.members.map(member => {
-                return client.messages.create({
-                    body: message,
-                    from: from, // Ensure this is a Twilio WhatsApp number
-                    to: `whatsapp:${standardizeNumber(member)}`
-                }).then(sentMessage => {
-                    console.log(`Message sent with SID: ${sentMessage.sid}`);
-                    return new Message({ from, to: standardizeNumber(member), body: message, group: groupId }).save();
-                });
-            });
+            const groupMessages = group.members.map(member => client.messages.create({
+                body: `Group message from ${from}: ${message}`,
+                from: from,
+                to: `whatsapp:${standardizeNumber(member)}`
+            }));
 
-            Promise.all(promises).then(() => {
-                res.status(200).json({ message: 'Message sent to group' });
+            await Promise.all(groupMessages);
 
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({ from, to: groupId, message }));
-                    }
-                });
-            }).catch(error => {
-                console.error('Error sending message to group:', error);
-                res.status(500).json({ error: 'Twilio error', details: error.message });
+            const newMessage = new Message({ from, to: groupId, body: message });
+            await newMessage.save();
+
+            res.status(200).json({ message: 'Group message sent' });
+
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ from, to: groupId, message }));
+                }
             });
-        }).catch(error => {
-            console.error('Error finding group:', error);
-            res.status(500).json({ error: 'Database error', details: error.message });
-        });
+        } catch (error) {
+            console.error('Error sending group message:', error);
+            res.status(500).json({ error: 'Error sending group message', details: error.message });
+        }
+    };
+
+    if (isGroup) {
+        sendToGroup(to);
     } else {
         client.messages.create({
             body: message,
@@ -155,19 +152,20 @@ app.post('/send', (req, res) => {
 });
 
 // Endpoint to create a group
-app.post('/groups', (req, res) => {
+app.post('/create-group', (req, res) => {
     const { name, members } = req.body;
 
-    if (!name || !members || !Array.isArray(members)) {
+    if (!name || !members) {
         return res.status(400).json({ error: 'Group name and members are required' });
     }
 
-    const group = new Group({ name, members });
-    group.save().then(savedGroup => {
-        res.status(201).json({ message: 'Group created', group: savedGroup });
-    }).catch(error => {
-        console.error('Error creating group:', error);
-        res.status(500).json({ error: 'Database error', details: error.message });
+    const newGroup = new Group({ name, members });
+
+    newGroup.save().then(group => {
+        res.status(201).json({ message: 'Group created', group });
+    }).catch(err => {
+        console.error('Error creating group:', err);
+        res.status(500).json({ error: 'Error creating group', details: err.message });
     });
 });
 
@@ -179,23 +177,26 @@ app.get('/messages', (req, res) => {
     });
 });
 
-// Endpoint to fetch unique contacts and groups from messages
+// Endpoint to fetch unique contacts from messages and groups
 app.get('/contacts', async (req, res) => {
     try {
-        const messages = await Message.find().populate('group');
+        const messages = await Message.find();
+        const groups = await Group.find();
         const contacts = {};
 
         messages.forEach(msg => {
             const from = standardizeNumber(msg.from);
             const to = standardizeNumber(msg.to);
 
-            if (msg.group) {
-                contacts[msg.group._id] = { name: msg.group.name, groupId: msg.group._id };
-            } else if (from !== standardizeNumber('whatsapp:+18434843838')) {
+            if (from !== standardizeNumber('whatsapp:+18434843838')) {
                 contacts[from] = { number: from };
             } else {
                 contacts[to] = { number: to };
             }
+        });
+
+        groups.forEach(group => {
+            contacts[group._id] = { number: group._id, name: group.name, isGroup: true };
         });
 
         const contactList = Object.values(contacts);
