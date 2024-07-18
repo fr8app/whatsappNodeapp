@@ -63,9 +63,9 @@ app.post('/incoming', (req, res) => {
     });
 });
 
-// Endpoint for sending messages
+// Endpoint to send messages to customers/drivers or groups
 app.post('/send', async (req, res) => {
-    const { message, to } = req.body;
+    const { message, to, isGroup } = req.body;
     const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
 
     console.log(`Sending message: ${message} to: ${to}`);
@@ -76,19 +76,24 @@ app.post('/send', async (req, res) => {
     }
 
     try {
-        const group = await Group.findOne({ _id: to });
-        if (group) {
-            // Sending message to all group members
-            for (const member of group.members) {
-                await client.messages.create({
-                    body: `Group message from ${from}: ${message}`,
-                    from: from,
-                    to: `whatsapp:${member}`
-                });
-                const newMessage = new Message({ from, to: member, body: `Group message from ${from}: ${message}` });
-                await newMessage.save();
+        if (isGroup) {
+            const group = await Group.findOne({ _id: to });
+            if (group) {
+                // Sending message to all group members
+                for (const member of group.members) {
+                    await client.messages.create({
+                        body: `Group message from ${from}: ${message}`,
+                        from: from,
+                        to: `whatsapp:${member}`
+                    });
+                    const newMessage = new Message({ from, to: member, body: `Group message from ${from}: ${message}` });
+                    await newMessage.save();
+                }
+                res.status(200).json({ message: 'Group message sent' });
+            } else {
+                console.error('Group not found');
+                res.status(404).json({ error: 'Group not found' });
             }
-            res.status(200).json({ message: 'Group message sent' });
         } else {
             // Sending message to an individual contact
             await client.messages.create({
