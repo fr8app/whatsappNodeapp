@@ -12,7 +12,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
-const authToken = '5f3f80cea5774a15530e44d1f77f5b5c';
+const authToken = 'your_auth_token'; // Use the correct Twilio auth token here
 const client = new twilio(accountSid, authToken);
 
 const employees = [
@@ -31,15 +31,18 @@ const messageSchema = new mongoose.Schema({
     from: String,
     to: String,
     body: String,
-    date: { type: Date, default: Date.now }
+    date: { type: Date, default: Date.now },
+    group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null }
 });
 
+const Message = mongoose.model('Message', messageSchema);
+
+// Define group schema and model
 const groupSchema = new mongoose.Schema({
     name: String,
     members: [String]
 });
 
-const Message = mongoose.model('Message', messageSchema);
 const Group = mongoose.model('Group', groupSchema);
 
 // Standardize contact number
@@ -79,81 +82,92 @@ app.post('/incoming', (req, res) => {
 });
 
 // Endpoint for employees to send messages to customers/drivers
-app.post('/send', async (req, res) => {
-    const { message, to } = req.body;
+app.post('/send', (req, res) => {
+    const { message, to, groupId } = req.body;
     const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
 
     console.log(`Sending message: ${message} to: ${to}`);
 
-    if (!message || !to) {
+    if (!message || (!to && !groupId)) {
         console.error('Message or recipient number is missing');
         return res.status(400).json({ error: 'Message or recipient number is missing' });
     }
 
-    try {
-        const group = await Group.findById(to);
+    if (groupId) {
+        Group.findById(groupId).then(group => {
+            if (!group) {
+                return res.status(404).json({ error: 'Group not found' });
+            }
 
-        if (group) {
-            // Sending message to all group members
-            group.members.forEach(member => {
-                client.messages.create({
+            const promises = group.members.map(member => {
+                return client.messages.create({
                     body: message,
                     from: from, // Ensure this is a Twilio WhatsApp number
                     to: `whatsapp:${standardizeNumber(member)}`
                 }).then(sentMessage => {
-                    console.log(`Message sent to group member with SID: ${sentMessage.sid}`);
-                }).catch(error => {
-                    console.error(`Error sending message to group member ${member}:`, error);
+                    console.log(`Message sent with SID: ${sentMessage.sid}`);
+                    return new Message({ from, to: standardizeNumber(member), body: message, group: groupId }).save();
                 });
             });
 
-            const newMessage = new Message({ from, to: group.name, body: message });
-            await newMessage.save();
+            Promise.all(promises).then(() => {
+                res.status(200).json({ message: 'Message sent to group' });
 
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ from, to: group.name, message }));
-                }
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ from, to: groupId, message }));
+                    }
+                });
+            }).catch(error => {
+                console.error('Error sending message to group:', error);
+                res.status(500).json({ error: 'Twilio error', details: error.message });
             });
-
-            res.status(200).json({ message: 'Message sent to group' });
-        } else {
-            // Sending message to an individual
-            const sentMessage = await client.messages.create({
-                body: message,
-                from: from, // Ensure this is a Twilio WhatsApp number
-                to: `whatsapp:${standardizeNumber(to)}`
-            });
-
+        }).catch(error => {
+            console.error('Error finding group:', error);
+            res.status(500).json({ error: 'Database error', details: error.message });
+        });
+    } else {
+        client.messages.create({
+            body: message,
+            from: from, // Ensure this is a Twilio WhatsApp number
+            to: `whatsapp:${standardizeNumber(to)}`
+        }).then(sentMessage => {
             console.log(`Message sent with SID: ${sentMessage.sid}`);
 
             const newMessage = new Message({ from, to: standardizeNumber(to), body: message });
-            await newMessage.save();
+            newMessage.save().then(() => {
+                res.status(200).json({ message: 'Message sent' });
 
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ from, to: standardizeNumber(to), message }));
-                }
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ from, to: standardizeNumber(to), message }));
+                    }
+                });
+            }).catch(saveError => {
+                console.error('Error saving outgoing message to database:', saveError);
+                res.status(500).json({ error: 'Database error', details: saveError.message });
             });
-
-            res.status(200).json({ message: 'Message sent' });
-        }
-    } catch (error) {
-        console.error('Error sending message:', error);
-        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+        }).catch(error => {
+            console.error('Error sending message:', error);
+            res.status(500).json({ error: 'Twilio error', details: error.message });
+        });
     }
 });
 
 // Endpoint to create a group
-app.post('/createGroup', (req, res) => {
-    const { groupName, members } = req.body;
+app.post('/groups', (req, res) => {
+    const { name, members } = req.body;
 
-    const newGroup = new Group({ name: groupName, members: members });
-    newGroup.save().then(group => {
-        res.status(200).json({ groupId: group._id });
-    }).catch(err => {
-        console.error('Error creating group:', err);
-        res.status(500).send('Error creating group');
+    if (!name || !members || !Array.isArray(members)) {
+        return res.status(400).json({ error: 'Group name and members are required' });
+    }
+
+    const group = new Group({ name, members });
+    group.save().then(savedGroup => {
+        res.status(201).json({ message: 'Group created', group: savedGroup });
+    }).catch(error => {
+        console.error('Error creating group:', error);
+        res.status(500).json({ error: 'Database error', details: error.message });
     });
 });
 
@@ -168,23 +182,20 @@ app.get('/messages', (req, res) => {
 // Endpoint to fetch unique contacts and groups from messages
 app.get('/contacts', async (req, res) => {
     try {
-        const messages = await Message.find();
+        const messages = await Message.find().populate('group');
         const contacts = {};
 
         messages.forEach(msg => {
             const from = standardizeNumber(msg.from);
             const to = standardizeNumber(msg.to);
 
-            if (from !== standardizeNumber('whatsapp:+18434843838')) {
+            if (msg.group) {
+                contacts[msg.group._id] = { name: msg.group.name, groupId: msg.group._id };
+            } else if (from !== standardizeNumber('whatsapp:+18434843838')) {
                 contacts[from] = { number: from };
             } else {
                 contacts[to] = { number: to };
             }
-        });
-
-        const groups = await Group.find();
-        groups.forEach(group => {
-            contacts[group._id] = { groupName: group.name, groupId: group._id };
         });
 
         const contactList = Object.values(contacts);
