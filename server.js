@@ -15,12 +15,6 @@ const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
 const authToken = '5f3f80cea5774a15530e44d1f77f5b5c';
 const client = new twilio(accountSid, authToken);
 
-const employees = [
-    { name: 'Nivedita', number: '+919922637115' },
-    { name: 'Guillermo', number: '+12019264229' },
-    // Add more employees here
-];
-
 // Connect to MongoDB
 mongoose.connect('mongodb://mongodb:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log('Connected to MongoDB'))
@@ -54,15 +48,6 @@ app.post('/incoming', (req, res) => {
 
     const newMessage = new Message({ from, body: message, to: standardizeNumber('whatsapp:+18434843838') });
     newMessage.save().then(() => {
-        employees.forEach(employee => {
-            client.messages.create({
-                body: `Message from ${from}: ${message}`,
-                from: 'whatsapp:+18434843838', // Your Twilio WhatsApp number
-                to: `whatsapp:${standardizeNumber(employee.number)}`
-            }).then(message => console.log(`Message sent with SID: ${message.sid}`))
-              .catch(err => console.error(`Error sending message to ${employee.number}:`, err));
-        });
-
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({ from, message }));
@@ -78,7 +63,7 @@ app.post('/incoming', (req, res) => {
     });
 });
 
-// Endpoint for employees to send messages to customers/drivers
+// Endpoint for sending messages
 app.post('/send', async (req, res) => {
     const { message, to } = req.body;
     const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
@@ -127,8 +112,6 @@ app.post('/send', async (req, res) => {
         res.status(500).json({ error: 'Error sending message', details: error.message });
     }
 });
-
-
 
 // Endpoint to create a group
 app.post('/create-group', (req, res) => {
