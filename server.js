@@ -81,54 +81,35 @@ app.post('/incoming', (req, res) => {
     });
 });
 
+// Endpoint for creating a group
+app.post('/group', (req, res) => {
+    const { name, members } = req.body;
+
+    const newGroup = new Group({ name, members });
+    newGroup.save().then(() => {
+        res.status(200).json({ message: 'Group created', groupId: newGroup._id });
+    }).catch(err => {
+        console.error('Error creating group:', err);
+        res.status(500).send('Error creating group');
+    });
+});
+
 // Endpoint for employees to send messages to customers/drivers or groups
 app.post('/send', (req, res) => {
     const { message, to, groupId } = req.body;
     const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
 
-    console.log(`Sending message: ${message} to: ${to}`);
+    console.log(`Sending message: ${message} to: ${to} or groupId: ${groupId}`);
 
     if (!message || (!to && !groupId)) {
         console.error('Message or recipient number/group ID is missing');
         return res.status(400).json({ error: 'Message or recipient number/group ID is missing' });
     }
 
-    if (groupId) {
-        Group.findById(groupId).then(group => {
-            if (!group) {
-                return res.status(404).json({ error: 'Group not found' });
-            }
-
-            const newMessage = new Message({ from, body: message, groupId });
-            newMessage.save().then(() => {
-                group.members.forEach(member => {
-                    client.messages.create({
-                        body: `Group ${group.name} - Message from ${from}: ${message}`,
-                        from: from,
-                        to: `whatsapp:${standardizeNumber(member)}`
-                    }).then(message => console.log(`Message sent with SID: ${message.sid}`))
-                      .catch(err => console.error(`Error sending message to ${member}:`, err));
-                });
-
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({ from, message, groupId }));
-                    }
-                });
-
-                res.status(200).json({ message: 'Group message sent' });
-            }).catch(saveError => {
-                console.error('Error saving group message to database:', saveError);
-                res.status(500).json({ error: 'Database error', details: saveError.message });
-            });
-        }).catch(err => {
-            console.error('Error finding group:', err);
-            res.status(500).json({ error: 'Group finding error', details: err.message });
-        });
-    } else {
+    if (to) {
         client.messages.create({
             body: message,
-            from: from, // Ensure this is a Twilio WhatsApp number
+            from: from,
             to: `whatsapp:${standardizeNumber(to)}`
         }).then(sentMessage => {
             console.log(`Message sent with SID: ${sentMessage.sid}`);
@@ -150,25 +131,40 @@ app.post('/send', (req, res) => {
             console.error('Error sending message:', error);
             res.status(500).json({ error: 'Twilio error', details: error.message });
         });
+    } else if (groupId) {
+        Group.findById(groupId).then(group => {
+            if (group) {
+                group.members.forEach(member => {
+                    client.messages.create({
+                        body: `Group message: ${message}`,
+                        from: from,
+                        to: `whatsapp:${standardizeNumber(member)}`
+                    }).then(sentMessage => {
+                        console.log(`Group message sent with SID: ${sentMessage.sid}`);
+
+                        const newMessage = new Message({ from, to: standardizeNumber(member), body: message, groupId });
+                        newMessage.save().catch(saveError => {
+                            console.error('Error saving group message to database:', saveError);
+                        });
+                    }).catch(error => {
+                        console.error(`Error sending group message to ${member}:`, error);
+                    });
+                });
+                res.status(200).json({ message: 'Group message sent' });
+
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ from, message, groupId }));
+                    }
+                });
+            } else {
+                res.status(404).json({ error: 'Group not found' });
+            }
+        }).catch(err => {
+            console.error('Error finding group:', err);
+            res.status(500).send('Error finding group');
+        });
     }
-});
-
-// Endpoint to create a group
-app.post('/groups', (req, res) => {
-    const { name, members } = req.body;
-
-    if (!name || !members || members.length === 0) {
-        return res.status(400).json({ error: 'Group name and members are required' });
-    }
-
-    const newGroup = new Group({ name, members });
-
-    newGroup.save().then(group => {
-        res.status(201).json(group);
-    }).catch(err => {
-        console.error('Error creating group:', err);
-        res.status(500).json({ error: 'Database error', details: err.message });
-    });
 });
 
 // Endpoint to fetch all messages
