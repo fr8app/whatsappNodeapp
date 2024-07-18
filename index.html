@@ -133,126 +133,127 @@
     </div>
     
     <script>
-        document.addEventListener('DOMContentLoaded', (event) => {
-            // Fetch and display the contacts
-            fetch('/contacts')
-                .then(response => response.json())
-                .then(contacts => {
-                    const contactList = document.getElementById('contactList');
-                    contacts.forEach(contact => {
-                        const li = document.createElement('li');
-                        li.textContent = contact.name || contact.number;
-                        li.dataset.number = contact.number;
-                        li.dataset.isGroup = contact.isGroup || false;
-                        li.addEventListener('click', () => loadChat(contact.number, contact.isGroup || false));
-                        contactList.appendChild(li);
-                    });
-                })
-                .catch(error => console.error('Error fetching contacts:', error));
+    document.addEventListener('DOMContentLoaded', (event) => {
+        // Fetch and display the contacts and groups
+        fetch('/contacts')
+            .then(response => response.json())
+            .then(contacts => {
+                const contactList = document.getElementById('contactList');
+                contacts.forEach(contact => {
+                    const li = document.createElement('li');
+                    li.textContent = contact.name || contact.number;
+                    li.dataset.number = contact.number;
+                    li.dataset.isGroup = contact.isGroup || false;
+                    li.addEventListener('click', () => loadChat(contact.number, contact.isGroup || false));
+                    contactList.appendChild(li);
+                });
+            })
+            .catch(error => console.error('Error fetching contacts:', error));
 
-            // WebSocket setup
-            const ws = new WebSocket('ws://' + window.location.host);
+        // WebSocket setup
+        const ws = new WebSocket('ws://' + window.location.host);
 
-            ws.onmessage = (event) => {
-                const { from, message, to } = JSON.parse(event.data);
-                addMessage(from, message, to === 'whatsapp:+18434843838');
-            };
+        ws.onmessage = (event) => {
+            const { from, message, to } = JSON.parse(event.data);
+            addMessage(from, message, to === 'whatsapp:+18434843838');
+        };
 
-            // Fetch and display the chat history
-            fetch('/messages')
-                .then(response => response.json())
-                .then(messages => {
-                    messages.reverse().forEach(msg => {
+        // Fetch and display the chat history
+        fetch('/messages')
+            .then(response => response.json())
+            .then(messages => {
+                messages.reverse().forEach(msg => {
+                    addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                });
+            })
+            .catch(error => console.error('Error fetching messages:', error));
+    });
+
+    document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const number = document.querySelector('input#to').value;
+        const message = document.querySelector('textarea#message').value;
+        const isGroup = document.querySelector('input#to').dataset.isGroup === 'true';
+
+        fetch('/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to: number,
+                message: message,
+                isGroup: isGroup
+            })
+        }).then(response => response.json()).then(data => {
+            if (data.message) {
+                addMessage('whatsapp:+18434843838', message, true);
+                document.querySelector('textarea#message').value = '';
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+        });
+    });
+
+    document.querySelector('form#createGroup').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const name = document.querySelector('input#groupName').value;
+        const members = document.querySelector('input#groupMembers').value.split(',');
+
+        fetch('/create-group', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name,
+                members: members
+            })
+        }).then(response => response.json()).then(data => {
+            if (data.group) {
+                alert(`Group created with ID: ${data.group._id}`);
+                location.reload();
+            }
+        }).catch(error => {
+            console.error('Error creating group:', error);
+        });
+    });
+
+    const loadChat = (number, isGroup) => {
+        document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
+        document.querySelector('input#to').value = number;
+        document.querySelector('input#to').dataset.isGroup = isGroup;
+
+        // Clear the chat messages
+        const chat = document.getElementById('chatMessages');
+        chat.innerHTML = '';
+
+        // Fetch and display the chat history for the selected contact or group
+        fetch('/messages')
+            .then(response => response.json())
+            .then(messages => {
+                messages.reverse().forEach(msg => {
+                    if (msg.from === number || msg.to === number || (isGroup && msg.groupId === number)) {
                         addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                    });
-                })
-                .catch(error => console.error('Error fetching messages:', error));
-        });
+                    }
+                });
+            })
+            .catch(error => console.error('Error fetching messages:', error));
+    };
 
-        document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const number = document.querySelector('input#to').value;
-            const message = document.querySelector('textarea#message').value;
-            const isGroup = document.querySelector('input#to').dataset.isGroup === 'true';
+    const addMessage = (from, message, isOutgoing) => {
+        const chat = document.getElementById('chatMessages');
+        const msgDiv = document.createElement('div');
+        msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
+        msgDiv.textContent = `${from}: ${message}`;
+        chat.appendChild(msgDiv);
+        chat.scrollTop = chat.scrollHeight; // Scroll to bottom
+    };
 
-            fetch('/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    to: number,
-                    message: message,
-                    isGroup: isGroup
-                })
-            }).then(response => response.json()).then(data => {
-                if (data.message) {
-                    addMessage('whatsapp:+18434843838', message, true);
-                    document.querySelector('textarea#message').value = '';
-                }
-            }).catch(error => {
-                console.error('Error:', error);
-            });
-        });
+    // Example of how you could add an incoming message for testing
+    // addMessage('whatsapp:+1234567890', 'Hello!');
+    // addMessage('whatsapp:+0987654321', 'Hi there!');
+</script>
 
-        document.querySelector('form#createGroup').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const name = document.querySelector('input#groupName').value;
-            const members = document.querySelector('input#groupMembers').value.split(',');
-
-            fetch('/create-group', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    name: name,
-                    members: members
-                })
-            }).then(response => response.json()).then(data => {
-                if (data.group) {
-                    alert(`Group created with ID: ${data.group._id}`);
-                    location.reload();
-                }
-            }).catch(error => {
-                console.error('Error creating group:', error);
-            });
-        });
-
-        const loadChat = (number, isGroup) => {
-            document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
-            document.querySelector('input#to').value = number;
-            document.querySelector('input#to').dataset.isGroup = isGroup;
-
-            // Clear the chat messages
-            const chat = document.getElementById('chatMessages');
-            chat.innerHTML = '';
-
-            // Fetch and display the chat history for the selected contact or group
-            fetch('/messages')
-                .then(response => response.json())
-                .then(messages => {
-                    messages.reverse().forEach(msg => {
-                        if (msg.from === number || msg.to === number) {
-                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                        }
-                    });
-                })
-                .catch(error => console.error('Error fetching messages:', error));
-        };
-
-        const addMessage = (from, message, isOutgoing) => {
-            const chat = document.getElementById('chatMessages');
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
-            msgDiv.textContent = `${from}: ${message}`;
-            chat.appendChild(msgDiv);
-            chat.scrollTop = chat.scrollHeight; // Scroll to bottom
-        };
-
-        // Example of how you could add an incoming message for testing
-        // addMessage('whatsapp:+1234567890', 'Hello!');
-        // addMessage('whatsapp:+0987654321', 'Hi there!');
-    </script>
 </body>
 </html>
