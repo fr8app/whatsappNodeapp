@@ -27,7 +27,6 @@
             border-right: 1px solid #ddd;
             background-color: #f8f8f8;
             overflow-y: scroll;
-            position: relative;
         }
         #contacts ul {
             list-style: none;
@@ -48,21 +47,6 @@
             padding: 10px;
             text-align: center;
             font-size: 24px;
-        }
-        #addContactButton {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 10px 20px;
-            background-color: #075e54;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        #addContactButton:hover {
-            background-color: #064e48;
         }
         #chat {
             flex: 1;
@@ -86,6 +70,7 @@
             padding: 10px;
             border-radius: 5px;
             max-width: 70%;
+            position: relative;
         }
         .incoming {
             background-color: #ffffff;
@@ -95,6 +80,21 @@
             background-color: #dcf8c6;
             align-self: flex-end;
             text-align: right;
+        }
+        .message-header {
+            font-size: 0.75em;
+            color: #555;
+        }
+        .message-options {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 0.75em;
+            color: #075e54;
+            cursor: pointer;
+        }
+        .message-options span {
+            margin-left: 10px;
         }
         #sendMessage {
             display: flex;
@@ -122,13 +122,13 @@
         #sendMessage button:hover {
             background-color: #064e48;
         }
-        #createGroup, #addContactForm {
+         #createGroup {
             display: flex;
             border-top: 1px solid #ddd;
             padding: 10px;
             background-color: #fafafa;
         }
-        #createGroup input, #addContactForm input {
+        #createGroup input {
             flex: 1;
             padding: 10px;
             margin: 5px;
@@ -136,7 +136,7 @@
             border-radius: 5px;
             outline: none;
         }
-        #createGroup button, #addContactForm button {
+        #createGroup button {
             padding: 10px;
             background-color: #075e54;
             color: white;
@@ -145,7 +145,7 @@
             cursor: pointer;
             margin: 5px;
         }
-        #createGroup button:hover, #addContactForm button:hover {
+        #createGroup button:hover {
             background-color: #064e48;
         }
     </style>
@@ -157,7 +157,6 @@
             <ul id="contactList">
                 <!-- Contacts will be dynamically inserted here -->
             </ul>
-            <button id="addContactButton">Add Contact</button>
         </div>
         <div id="chat">
             <div id="chatHeader">Chat</div>
@@ -171,11 +170,6 @@
                 <input type="text" id="groupName" placeholder="Enter group name" required>
                 <input type="text" id="groupMembers" placeholder="Enter member numbers, separated by commas" required>
                 <button type="submit">Create Group</button>
-            </form>
-            <form id="addContactForm" style="display: none; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
-                <input type="text" id="contactName" placeholder="Enter contact name" required>
-                <input type="text" id="contactNumber" placeholder="Enter contact number" required>
-                <button type="submit">Add Contact</button>
             </form>
         </div>
     </div>
@@ -267,35 +261,6 @@
         });
     });
 
-    document.querySelector('form#addContactForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = document.querySelector('input#contactName').value;
-        const number = document.querySelector('input#contactNumber').value;
-
-        fetch('/add-contact', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                number: number
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.contact) {
-                alert(`Contact added: ${data.contact.name}`);
-                location.reload();
-            }
-        }).catch(error => {
-            console.error('Error adding contact:', error);
-        });
-    });
-
-    document.getElementById('addContactButton').addEventListener('click', () => {
-        document.getElementById('addContactForm').style.display = 'flex';
-        document.getElementById('createGroup').style.display = 'none';
-    });
-
     const loadChat = (number, isGroup) => {
         document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
         document.querySelector('input#to').value = number;
@@ -322,10 +287,29 @@
         const chat = document.getElementById('chatMessages');
         const msgDiv = document.createElement('div');
         msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
-        msgDiv.textContent = `${from}: ${message}`;
+        
+        const messageHeader = document.createElement('div');
+        messageHeader.classList.add('message-header');
+        messageHeader.textContent = from;
+
+        const messageBody = document.createElement('div');
+        messageBody.textContent = message;
+
+        const messageOptions = document.createElement('div');
+        messageOptions.classList.add('message-options');
+        messageOptions.innerHTML = '<span>Reply</span><span>Forward</span>';
+
+        msgDiv.appendChild(messageHeader);
+        msgDiv.appendChild(messageBody);
+        msgDiv.appendChild(messageOptions);
+
         chat.appendChild(msgDiv);
         chat.scrollTop = chat.scrollHeight; // Scroll to bottom
     };
+
+    // Example of how you could add an incoming message for testing
+    // addMessage('whatsapp:+1234567890', 'Hello!');
+    // addMessage('whatsapp:+0987654321', 'Hi there!');
 </script>
 
 </body>
