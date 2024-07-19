@@ -20,7 +20,7 @@ mongoose.connect('mongodb://mongodb:27017/whatsappDB', { useNewUrlParser: true, 
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('Error connecting to MongoDB:', err));
 
-// Define message schema and model
+// Define schemas and models
 const messageSchema = new mongoose.Schema({
     from: String,
     to: String,
@@ -33,8 +33,14 @@ const groupSchema = new mongoose.Schema({
     members: [String]
 });
 
+const contactSchema = new mongoose.Schema({
+    name: String,
+    number: String
+});
+
 const Message = mongoose.model('Message', messageSchema);
 const Group = mongoose.model('Group', groupSchema);
+const Contact = mongoose.model('Contact', contactSchema);
 
 // Standardize contact number
 const standardizeNumber = (number) => number.replace('whatsapp:', '');
@@ -136,6 +142,24 @@ app.post('/create-group', (req, res) => {
     });
 });
 
+// Endpoint to add a contact
+app.post('/add-contact', (req, res) => {
+    const { name, number } = req.body;
+
+    if (!name || !number) {
+        return res.status(400).json({ error: 'Contact name and number are required' });
+    }
+
+    const newContact = new Contact({ name, number: standardizeNumber(number) });
+
+    newContact.save().then(contact => {
+        res.status(201).json({ message: 'Contact added', contact });
+    }).catch(err => {
+        console.error('Error adding contact:', err);
+        res.status(500).json({ error: 'Error adding contact', details: err.message });
+    });
+});
+
 // Endpoint to fetch all messages
 app.get('/messages', (req, res) => {
     Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => {
@@ -149,24 +173,29 @@ app.get('/contacts', async (req, res) => {
     try {
         const messages = await Message.find();
         const groups = await Group.find();
-        const contacts = {};
+        const contacts = await Contact.find();
+        const contactMap = {};
 
         messages.forEach(msg => {
             const from = standardizeNumber(msg.from);
             const to = standardizeNumber(msg.to);
 
             if (from !== standardizeNumber('whatsapp:+18434843838')) {
-                contacts[from] = { number: from };
+                contactMap[from] = { number: from };
             } else {
-                contacts[to] = { number: to };
+                contactMap[to] = { number: to };
             }
         });
 
         groups.forEach(group => {
-            contacts[group._id] = { number: group._id, name: group.name, isGroup: true };
+            contactMap[group._id] = { number: group._id, name: group.name, isGroup: true };
         });
 
-        const contactList = Object.values(contacts);
+        contacts.forEach(contact => {
+            contactMap[contact.number] = { number: contact.number, name: contact.name };
+        });
+
+        const contactList = Object.values(contactMap);
         res.json(contactList);
     } catch (err) {
         console.error('Error fetching contacts from database:', err);
