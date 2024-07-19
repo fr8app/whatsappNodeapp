@@ -140,6 +140,15 @@
             margin-bottom: 10px;
             color: #555;
             display: none;
+            position: relative;
+        }
+        #closeReplyMessage {
+            position: absolute;
+            right: 10px;
+            top: 5px;
+            cursor: pointer;
+            color: #555;
+            font-weight: bold;
         }
         #sendMessage input, #sendMessage textarea {
             flex: 1;
@@ -202,7 +211,10 @@
             <div id="chatHeader">Chat</div>
             <div id="chatMessages"></div>
             <form id="sendMessage">
-                <div id="replyMessage"></div>
+                <div id="replyMessage">
+                    <span id="replyMessageText"></span>
+                    <span id="closeReplyMessage" onclick="closeReplyMessage()">x</span>
+                </div>
                 <input type="hidden" id="to" required>
                 <textarea id="message" placeholder="Enter message" required></textarea>
                 <button type="submit">Send</button>
@@ -283,7 +295,7 @@
                 addMessage('whatsapp:+18434843838', message, true);
                 document.querySelector('textarea#message').value = '';
                 document.getElementById('replyMessage').style.display = 'none';
-                document.getElementById('replyMessage').textContent = '';
+                document.getElementById('replyMessageText').textContent = '';
             }
         }).catch(error => {
             console.error('Error:', error);
@@ -430,7 +442,13 @@
     const replyMessage = (from, message) => {
         const replyMessageDiv = document.getElementById('replyMessage');
         replyMessageDiv.style.display = 'block';
-        replyMessageDiv.textContent = `Replying to: @${from}: ${message}`;
+        document.getElementById('replyMessageText').textContent = `Replying to: @${from}: ${message}`;
+    };
+
+    const closeReplyMessage = () => {
+        const replyMessageDiv = document.getElementById('replyMessage');
+        replyMessageDiv.style.display = 'none';
+        document.getElementById('replyMessageText').textContent = '';
     };
 
     const forwardMessage = (message) => {
