@@ -86,7 +86,6 @@
             padding: 10px;
             border-radius: 5px;
             max-width: 70%;
-            position: relative;
         }
         .incoming {
             background-color: #ffffff;
@@ -96,22 +95,6 @@
             background-color: #dcf8c6;
             align-self: flex-end;
             text-align: right;
-        }
-        .message-options {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            display: none;
-        }
-        .message:hover .message-options {
-            display: block;
-        }
-        .message-options button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 5px;
-            font-size: 14px;
         }
         #sendMessage {
             display: flex;
@@ -339,63 +322,11 @@
         const chat = document.getElementById('chatMessages');
         const msgDiv = document.createElement('div');
         msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
-        msgDiv.classList.add('message');
-        msgDiv.innerHTML = `
-            <span class="message-number">${from}</span><br>
-            <span class="message-text">${message}</span>
-            <div class="message-options">
-                <button onclick="replyMessage('${from}', '${message}')">Reply</button>
-                <button onclick="forwardMessage('${message}')">Forward</button>
-            </div>
-        `;
+        msgDiv.textContent = `${from}: ${message}`;
         chat.appendChild(msgDiv);
         chat.scrollTop = chat.scrollHeight; // Scroll to bottom
     };
+</script>
 
-    const replyMessage = (from, message) => {
-        const textarea = document.querySelector('textarea#message');
-        textarea.value = `@${from}: ${message}\n${textarea.value}`;
-        textarea.focus();
-    };
-
-    const forwardMessage = (message) => {
-        // Show contact list for forwarding
-        const contactList = document.getElementById('contactList');
-        contactList.style.display = 'block';
-        const forwardButton = document.createElement('button');
-        forwardButton.textContent = 'Send';
-        forwardButton.onclick = () => {
-            const selectedContacts = Array.from(contactList.querySelectorAll('li.selected')).map(li => li.dataset.number);
-            selectedContacts.forEach(number => {
-                fetch('/send', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        to: number,
-                        message: message,
-                        isGroup: false
-                    })
-                }).then(response => response.json()).then(data => {
-                    if (data.message) {
-                        alert('Message forwarded');
-                        location.reload();
-                    }
-                }).catch(error => {
-                    console.error('Error forwarding message:', error);
-                });
-            });
-        };
-        contactList.appendChild(forwardButton);
-    };
-
-    document.querySelectorAll('#contactList li').forEach(li => {
-        li.addEventListener('click', (e) => {
-            li.classList.toggle('selected');
-        });
-    });
-
-    </script>
 </body>
 </html>
