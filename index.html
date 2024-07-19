@@ -127,9 +127,19 @@
         }
         #sendMessage {
             display: flex;
+            flex-direction: column;
             border-top: 1px solid #ddd;
             padding: 10px;
             background-color: #fafafa;
+        }
+        #replyMessage {
+            background-color: #f0f0f0;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            color: #555;
+            display: none;
         }
         #sendMessage input, #sendMessage textarea {
             flex: 1;
@@ -192,6 +202,7 @@
             <div id="chatHeader">Chat</div>
             <div id="chatMessages"></div>
             <form id="sendMessage">
+                <div id="replyMessage"></div>
                 <input type="hidden" id="to" required>
                 <textarea id="message" placeholder="Enter message" required></textarea>
                 <button type="submit">Send</button>
@@ -271,6 +282,8 @@
             if (data.message) {
                 addMessage('whatsapp:+18434843838', message, true);
                 document.querySelector('textarea#message').value = '';
+                document.getElementById('replyMessage').style.display = 'none';
+                document.getElementById('replyMessage').textContent = '';
             }
         }).catch(error => {
             console.error('Error:', error);
@@ -415,9 +428,9 @@
     };
 
     const replyMessage = (from, message) => {
-        const messageBox = document.querySelector('textarea#message');
-        messageBox.value = `@${from}: ${message}\n`;
-        messageBox.setAttribute('readonly', true); // Set the message box to readonly
+        const replyMessageDiv = document.getElementById('replyMessage');
+        replyMessageDiv.style.display = 'block';
+        replyMessageDiv.textContent = `Replying to: @${from}: ${message}`;
     };
 
     const forwardMessage = (message) => {
