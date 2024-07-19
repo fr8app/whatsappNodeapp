@@ -81,11 +81,11 @@
             padding: 10px;
             overflow-y: scroll;
         }
-        #chatMessages div {
+        #chatMessages .message {
             margin: 5px 0;
             padding: 10px;
             border-radius: 5px;
-            max-width: 60%;
+            max-width: 70%;
             position: relative;
         }
         .incoming {
@@ -98,31 +98,29 @@
             text-align: right;
         }
         .message-header {
-            font-size: 0.85em;
-            color: #555;
-            margin-bottom: 5px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 5px;
         }
-        .message-options {
-            position: absolute;
-            top: 5px;
-            right: 10px;
+        .message-header .sender {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .message-header .options {
             cursor: pointer;
         }
-        .message-options ul {
+        .message-header .options ul {
             display: none;
-            list-style: none;
-            padding: 5px;
-            border: 1px solid #ddd;
-            background-color: #fff;
             position: absolute;
-            top: 20px;
             right: 0;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            background: white;
+            border: 1px solid #ccc;
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
-        .message-options:hover ul {
+        .message-header .options:hover ul {
             display: block;
         }
         #sendMessage {
@@ -207,9 +205,9 @@
                 <button type="submit">Add Contact</button>
             </form>
             <form id="forwardMessageForm" style="display: none; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
-                <input type="hidden" id="messageToForward">
-                <input type="text" id="forwardToNumber" placeholder="Enter number to forward to" required>
-                <button type="submit">Forward</button>
+                <input type="text" id="forwardToNumber" placeholder="Enter contact number to forward" required>
+                <input type="hidden" id="messageToForward" required>
+                <button type="submit">Forward Message</button>
             </form>
         </div>
     </div>
@@ -327,8 +325,8 @@
 
     document.querySelector('form#forwardMessageForm').addEventListener('submit', function (e) {
         e.preventDefault();
-        const message = document.querySelector('input#messageToForward').value;
-        const to = document.querySelector('input#forwardToNumber').value;
+        const forwardToNumber = document.querySelector('input#forwardToNumber').value;
+        const messageToForward = document.querySelector('input#messageToForward').value;
 
         fetch('/send', {
             method: 'POST',
@@ -336,18 +334,18 @@
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                to: to,
-                message: message,
+                to: forwardToNumber,
+                message: messageToForward,
                 isGroup: false
             })
         }).then(response => response.json()).then(data => {
             if (data.message) {
                 alert('Message forwarded successfully');
                 document.querySelector('input#forwardToNumber').value = '';
-                document.querySelector('form#forwardMessageForm').style.display = 'none';
+                document.querySelector('input#messageToForward').value = '';
             }
         }).catch(error => {
-            console.error('Error:', error);
+            console.error('Error forwarding message:', error);
         });
     });
 
@@ -382,38 +380,58 @@
     const addMessage = (from, message, isOutgoing) => {
         const chat = document.getElementById('chatMessages');
         const msgDiv = document.createElement('div');
+        msgDiv.classList.add('message');
         msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
-        
+
         const msgHeader = document.createElement('div');
         msgHeader.classList.add('message-header');
         
         const sender = document.createElement('span');
-        sender.textContent = from;
+        sender.classList.add('sender');
+        sender.textContent = isOutgoing ? 'You' : from;
 
-        const options = document.createElement('div');
-        options.classList.add('message-options');
-        options.innerHTML = '...<ul><li onclick="replyMessage(\'' + from + '\', \'' + message + '\')">Reply</li><li onclick="forwardMessage(\'' + message + '\')">Forward</li></ul>';
+        const options = document.createElement('span');
+        options.classList.add('options');
+        options.innerHTML = '⋮';
+        
+        const optionsList = document.createElement('ul');
+        const replyOption = document.createElement('li');
+        replyOption.textContent = 'Reply';
+        replyOption.addEventListener('click', () => replyToMessage(message));
+        const forwardOption = document.createElement('li');
+        forwardOption.textContent = 'Forward';
+        forwardOption.addEventListener('click', () => forwardMessage(message));
+
+        optionsList.appendChild(replyOption);
+        optionsList.appendChild(forwardOption);
+        options.appendChild(optionsList);
 
         msgHeader.appendChild(sender);
         msgHeader.appendChild(options);
-        
+
+        const msgBody = document.createElement('div');
+        msgBody.textContent = message;
+
         msgDiv.appendChild(msgHeader);
-        msgDiv.appendChild(document.createTextNode(message));
-        
+        msgDiv.appendChild(msgBody);
+
         chat.appendChild(msgDiv);
         chat.scrollTop = chat.scrollHeight; // Scroll to bottom
     };
 
-    const replyMessage = (from, message) => {
-        document.querySelector('textarea#message').value = `@${from}: ${message}\n`;
+    const replyToMessage = (message) => {
+        const replyBox = document.querySelector('textarea#message');
+        replyBox.value = `Replying to: ${message}\n\n`;
+        replyBox.focus();
     };
 
     const forwardMessage = (message) => {
-        document.querySelector('form#forwardMessageForm').style.display = 'flex';
-        document.querySelector('input#messageToForward').value = message;
-        document.getElementById('addContactForm').style.display = 'none';
+        document.getElementById('forwardMessageForm').style.display = 'flex';
         document.getElementById('createGroup').style.display = 'none';
+        document.getElementById('addContactForm').style.display = 'none';
+        document.querySelector('input#messageToForward').value = message;
     };
-    </script>
+</script>
+
 </body>
 </html>
