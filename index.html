@@ -357,8 +357,13 @@
         document.getElementById('forwardMessageForm').style.display = 'none';
     });
 
-    const loadChat = (number, isGroup) => {
-        document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
+    const loadChat = async (number, isGroup) => {
+        const response = await fetch('/contacts');
+        const contacts = await response.json();
+        const contact = contacts.find(contact => contact.number === number);
+        const contactName = contact ? contact.name : number;
+
+        document.querySelector('#chatHeader').textContent = `Chat with ${contactName}`;
         document.querySelector('input#to').value = number;
         document.querySelector('input#to').dataset.isGroup = isGroup;
 
@@ -379,7 +384,12 @@
             .catch(error => console.error('Error fetching messages:', error));
     };
 
-    const addMessage = (from, message, isOutgoing) => {
+    const addMessage = async (from, message, isOutgoing) => {
+        const response = await fetch('/contacts');
+        const contacts = await response.json();
+        const contact = contacts.find(contact => contact.number === from);
+        const contactName = contact ? contact.name : from;
+
         const chat = document.getElementById('chatMessages');
         const msgDiv = document.createElement('div');
         msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
@@ -388,11 +398,11 @@
         msgHeader.classList.add('message-header');
         
         const sender = document.createElement('span');
-        sender.textContent = from;
+        sender.textContent = contactName;
 
         const options = document.createElement('div');
         options.classList.add('message-options');
-        options.innerHTML = '...<ul><li onclick="replyMessage(\'' + from + '\', \'' + message + '\')">Reply</li><li onclick="forwardMessage(\'' + message + '\')">Forward</li></ul>';
+        options.innerHTML = '...<ul><li onclick="replyMessage(\'' + contactName + '\', \'' + message + '\')">Reply</li><li onclick="forwardMessage(\'' + message + '\')">Forward</li></ul>';
 
         msgHeader.appendChild(sender);
         msgHeader.appendChild(options);
