@@ -196,6 +196,19 @@
         #createGroup button:hover, #addContactForm button:hover, #forwardMessageForm button:hover {
             background-color: #064e48;
         }
+        #closeForwardMessage {
+            position: absolute;
+            right: 10px;
+            top: 5px;
+            cursor: pointer;
+            color: #555;
+            font-weight: bold;
+        }
+        .forward-message-wrapper {
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -229,10 +242,11 @@
                 <input type="text" id="contactNumber" placeholder="Enter contact number" required>
                 <button type="submit">Add Contact</button>
             </form>
-            <form id="forwardMessageForm" style="display: none; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
+            <form id="forwardMessageForm" class="forward-message-wrapper" style="display: none; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
                 <input type="hidden" id="messageToForward">
                 <input type="text" id="forwardToNumber" placeholder="Enter number to forward to" required>
                 <button type="submit">Forward</button>
+                <span id="closeForwardMessage" onclick="closeForwardMessage()">x</span>
             </form>
         </div>
     </div>
@@ -456,6 +470,11 @@
         document.querySelector('input#messageToForward').value = message;
         document.getElementById('addContactForm').style.display = 'none';
         document.getElementById('createGroup').style.display = 'none';
+    };
+
+    const closeForwardMessage = () => {
+        document.querySelector('form#forwardMessageForm').style.display = 'none';
+        document.querySelector('input#messageToForward').value = '';
     };
     </script>
 </body>
