@@ -45,6 +45,12 @@ const Contact = mongoose.model('Contact', contactSchema);
 // Standardize contact number
 const standardizeNumber = (number) => number.replace('whatsapp:', '');
 
+// Helper function to get contact name by number
+const getContactName = async (number) => {
+    const contact = await Contact.findOne({ number: standardizeNumber(number) });
+    return contact ? contact.name : number;
+};
+
 // Endpoint to handle incoming messages from customers/drivers
 app.post('/incoming', (req, res) => {
     const message = req.body.Body;
