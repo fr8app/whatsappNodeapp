@@ -415,7 +415,9 @@
     };
 
     const replyMessage = (from, message) => {
-        document.querySelector('textarea#message').value = `@${from}: ${message}\n`;
+        const messageBox = document.querySelector('textarea#message');
+        messageBox.value = `@${from}: ${message}\n`;
+        messageBox.setAttribute('readonly', true); // Set the message box to readonly
     };
 
     const forwardMessage = (message) => {
