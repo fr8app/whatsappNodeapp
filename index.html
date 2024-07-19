@@ -1,316 +1,225 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>WhatsApp Interface</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        #container {
-            width: 80%;
-            max-width: 1200px;
-            height: 80%;
-            background-color: white;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
-            overflow: hidden;
-            display: flex;
-        }
-        #contacts {
-            width: 25%;
-            border-right: 1px solid #ddd;
-            background-color: #f8f8f8;
-            overflow-y: scroll;
-        }
-        #contacts ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        #contacts li {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-            cursor: pointer;
-        }
-        #contacts li:hover {
-            background-color: #eee;
-        }
-        #header {
-            background-color: #075e54;
-            color: white;
-            padding: 10px;
-            text-align: center;
-            font-size: 24px;
-        }
-        #chat {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: #e5ddd5;
-        }
-        #chatHeader {
-            background-color: #075e54;
-            color: white;
-            padding: 10px;
-            text-align: center;
-        }
-        #chatMessages {
-            flex: 1;
-            padding: 10px;
-            overflow-y: scroll;
-        }
-        #chatMessages div {
-            margin: 5px 0;
-            padding: 10px;
-            border-radius: 5px;
-            max-width: 70%;
-            position: relative;
-        }
-        .incoming {
-            background-color: #ffffff;
-            align-self: flex-start;
-        }
-        .outgoing {
-            background-color: #dcf8c6;
-            align-self: flex-end;
-            text-align: right;
-        }
-        .message-header {
-            font-size: 0.75em;
-            color: #555;
-        }
-        .message-options {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 0.75em;
-            color: #075e54;
-            cursor: pointer;
-        }
-        .message-options span {
-            margin-left: 10px;
-        }
-        #sendMessage {
-            display: flex;
-            border-top: 1px solid #ddd;
-            padding: 10px;
-            background-color: #fafafa;
-        }
-        #sendMessage input, #sendMessage textarea {
-            flex: 1;
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            outline: none;
-        }
-        #sendMessage button {
-            padding: 10px;
-            background-color: #075e54;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        #sendMessage button:hover {
-            background-color: #064e48;
-        }
-         #createGroup {
-            display: flex;
-            border-top: 1px solid #ddd;
-            padding: 10px;
-            background-color: #fafafa;
-        }
-        #createGroup input {
-            flex: 1;
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            outline: none;
-        }
-        #createGroup button {
-            padding: 10px;
-            background-color: #075e54;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        #createGroup button:hover {
-            background-color: #064e48;
-        }
-    </style>
-</head>
-<body>
-    <div id="container">
-        <div id="contacts">
-            <div id="header">Contacts</div>
-            <ul id="contactList">
-                <!-- Contacts will be dynamically inserted here -->
-            </ul>
-        </div>
-        <div id="chat">
-            <div id="chatHeader">Chat</div>
-            <div id="chatMessages"></div>
-            <form id="sendMessage">
-                <input type="hidden" id="to" required>
-                <textarea id="message" placeholder="Enter message" required></textarea>
-                <button type="submit">Send</button>
-            </form>
-            <form id="createGroup" style="display: flex; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
-                <input type="text" id="groupName" placeholder="Enter group name" required>
-                <input type="text" id="groupMembers" placeholder="Enter member numbers, separated by commas" required>
-                <button type="submit">Create Group</button>
-            </form>
-        </div>
-    </div>
-    
-    <script>
-    document.addEventListener('DOMContentLoaded', (event) => {
-        // Fetch and display the contacts and groups
-        fetch('/contacts')
-            .then(response => response.json())
-            .then(contacts => {
-                const contactList = document.getElementById('contactList');
-                contacts.forEach(contact => {
-                    const li = document.createElement('li');
-                    li.textContent = contact.name || contact.number;
-                    li.dataset.number = contact.number;
-                    li.dataset.isGroup = contact.isGroup || false;
-                    li.addEventListener('click', () => loadChat(contact.number, contact.isGroup || false));
-                    contactList.appendChild(li);
-                });
-            })
-            .catch(error => console.error('Error fetching contacts:', error));
+const express = require('express');
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
+const { MessagingResponse } = require('twilio').twiml;
+const twilio = require('twilio');
+const path = require('path');
+const WebSocket = require('ws');
 
-        // WebSocket setup
-        const ws = new WebSocket('ws://' + window.location.host);
+const app = express();
 
-        ws.onmessage = (event) => {
-            const { from, message, to } = JSON.parse(event.data);
-            addMessage(from, message, to === 'whatsapp:+18434843838');
-        };
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-        // Fetch and display the chat history
-        fetch('/messages')
-            .then(response => response.json())
-            .then(messages => {
-                messages.reverse().forEach(msg => {
-                    addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                });
-            })
-            .catch(error => console.error('Error fetching messages:', error));
-    });
+const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
+const authToken = '5f3f80cea5774a15530e44d1f77f5b5c';
+const client = new twilio(accountSid, authToken);
 
-    document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const number = document.querySelector('input#to').value;
-        const message = document.querySelector('textarea#message').value;
-        const isGroup = document.querySelector('input#to').dataset.isGroup === 'true';
+// Connect to MongoDB
+mongoose.connect('mongodb://mongodb:27017/whatsappDB', { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('Connected to MongoDB'))
+    .catch(err => console.error('Error connecting to MongoDB:', err));
 
-        fetch('/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                to: number,
-                message: message,
-                isGroup: isGroup
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.message) {
-                addMessage('whatsapp:+18434843838', message, true);
-                document.querySelector('textarea#message').value = '';
+// Define schemas and models
+const messageSchema = new mongoose.Schema({
+    from: String,
+    to: String,
+    body: String,
+    date: { type: Date, default: Date.now }
+});
+
+const groupSchema = new mongoose.Schema({
+    name: String,
+    members: [String]
+});
+
+const contactSchema = new mongoose.Schema({
+    name: String,
+    number: String
+});
+
+const Message = mongoose.model('Message', messageSchema);
+const Group = mongoose.model('Group', groupSchema);
+const Contact = mongoose.model('Contact', contactSchema);
+
+// Standardize contact number
+const standardizeNumber = (number) => number.replace('whatsapp:', '');
+
+// Endpoint to handle incoming messages from customers/drivers
+app.post('/incoming', (req, res) => {
+    const message = req.body.Body;
+    const from = standardizeNumber(req.body.From);
+
+    console.log(`Received message from ${from}: ${message}`);
+
+    const newMessage = new Message({ from, body: message, to: standardizeNumber('whatsapp:+18434843838') });
+    newMessage.save().then(() => {
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ from, message }));
             }
-        }).catch(error => {
-            console.error('Error:', error);
         });
+
+        const twiml = new MessagingResponse();
+        res.writeHead(200, { 'Content-Type': 'text/xml' });
+        res.end(twiml.toString());
+    }).catch(err => {
+        console.error('Error saving incoming message to database:', err);
+        res.status(500).send('Error saving incoming message to database');
     });
+});
 
-    document.querySelector('form#createGroup').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = document.querySelector('input#groupName').value;
-        const members = document.querySelector('input#groupMembers').value.split(',');
+// Endpoint to send messages to customers/drivers or groups
+app.post('/send', async (req, res) => {
+    const { message, to, isGroup } = req.body;
+    const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
 
-        fetch('/create-group', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                members: members
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.group) {
-                alert(`Group created with ID: ${data.group._id}`);
-                location.reload();
+    console.log(`Sending message: ${message} to: ${to}`);
+
+    if (!message || !to) {
+        console.error('Message or recipient number is missing');
+        return res.status(400).json({ error: 'Message or recipient number is missing' });
+    }
+
+    try {
+        if (isGroup) {
+            const group = await Group.findOne({ _id: to });
+            if (group) {
+                // Sending message to all group members
+                for (const member of group.members) {
+                    await client.messages.create({
+                        body: `Group message from ${from}: ${message}`,
+                        from: from,
+                        to: `whatsapp:${member}`
+                    });
+                    const newMessage = new Message({ from, to: member, body: `Group message from ${from}: ${message}` });
+                    await newMessage.save();
+                }
+                res.status(200).json({ message: 'Group message sent' });
+            } else {
+                console.error('Group not found');
+                res.status(404).json({ error: 'Group not found' });
             }
-        }).catch(error => {
-            console.error('Error creating group:', error);
+        } else {
+            // Sending message to an individual contact
+            await client.messages.create({
+                body: message,
+                from: from, // Ensure this is a Twilio WhatsApp number
+                to: `whatsapp:${standardizeNumber(to)}`
+            });
+            const newMessage = new Message({ from, to: standardizeNumber(to), body: message });
+            await newMessage.save();
+            res.status(200).json({ message: 'Message sent' });
+        }
+
+        // Notify all WebSocket clients
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ from, to, message }));
+            }
         });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        res.status(500).json({ error: 'Error sending message', details: error.message });
+    }
+});
+
+// Endpoint to create a group
+app.post('/create-group', (req, res) => {
+    const { name, members } = req.body;
+
+    if (!name || !members) {
+        return res.status(400).json({ error: 'Group name and members are required' });
+    }
+
+    const newGroup = new Group({ name, members });
+
+    newGroup.save().then(group => {
+        res.status(201).json({ message: 'Group created', group });
+    }).catch(err => {
+        console.error('Error creating group:', err);
+        res.status(500).json({ error: 'Error creating group', details: err.message });
     });
+});
 
-    const loadChat = (number, isGroup) => {
-        document.querySelector('#chatHeader').textContent = `Chat with ${number}`;
-        document.querySelector('input#to').value = number;
-        document.querySelector('input#to').dataset.isGroup = isGroup;
+// Endpoint to add a contact
+app.post('/add-contact', (req, res) => {
+    const { name, number } = req.body;
 
-        // Clear the chat messages
-        const chat = document.getElementById('chatMessages');
-        chat.innerHTML = '';
+    if (!name || !number) {
+        return res.status(400).json({ error: 'Contact name and number are required' });
+    }
 
-        // Fetch and display the chat history for the selected contact or group
-        fetch('/messages')
-            .then(response => response.json())
-            .then(messages => {
-                messages.reverse().forEach(msg => {
-                    if (msg.from === number || msg.to === number || (isGroup && msg.groupId === number)) {
-                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                    }
-                });
-            })
-            .catch(error => console.error('Error fetching messages:', error));
-    };
+    const newContact = new Contact({ name, number: standardizeNumber(number) });
 
-    const addMessage = (from, message, isOutgoing) => {
-        const chat = document.getElementById('chatMessages');
-        const msgDiv = document.createElement('div');
-        msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
-        
-        const messageHeader = document.createElement('div');
-        messageHeader.classList.add('message-header');
-        messageHeader.textContent = from;
+    newContact.save().then(contact => {
+        res.status(201).json({ message: 'Contact added', contact });
+    }).catch(err => {
+        console.error('Error adding contact:', err);
+        res.status(500).json({ error: 'Error adding contact', details: err.message });
+    });
+});
 
-        const messageBody = document.createElement('div');
-        messageBody.textContent = message;
+// Endpoint to fetch all messages
+app.get('/messages', (req, res) => {
+    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => {
+        console.error('Error fetching messages:', err);
+        res.status(500).send('Error fetching messages');
+    });
+});
 
-        const messageOptions = document.createElement('div');
-        messageOptions.classList.add('message-options');
-        messageOptions.innerHTML = '<span>Reply</span><span>Forward</span>';
+// Endpoint to fetch unique contacts from messages and groups
+app.get('/contacts', async (req, res) => {
+    try {
+        const messages = await Message.find();
+        const groups = await Group.find();
+        const contacts = await Contact.find();
+        const contactMap = {};
 
-        msgDiv.appendChild(messageHeader);
-        msgDiv.appendChild(messageBody);
-        msgDiv.appendChild(messageOptions);
+        messages.forEach(msg => {
+            const from = standardizeNumber(msg.from);
+            const to = standardizeNumber(msg.to);
 
-        chat.appendChild(msgDiv);
-        chat.scrollTop = chat.scrollHeight; // Scroll to bottom
-    };
+            if (from !== standardizeNumber('whatsapp:+18434843838')) {
+                contactMap[from] = { number: from };
+            } else {
+                contactMap[to] = { number: to };
+            }
+        });
 
-    // Example of how you could add an incoming message for testing
-    // addMessage('whatsapp:+1234567890', 'Hello!');
-    // addMessage('whatsapp:+0987654321', 'Hi there!');
-</script>
+        groups.forEach(group => {
+            contactMap[group._id] = { number: group._id, name: group.name, isGroup: true };
+        });
 
-</body>
-</html>
+        contacts.forEach(contact => {
+            contactMap[contact.number] = { number: contact.number, name: contact.name };
+        });
+
+        const contactList = Object.values(contactMap);
+        res.json(contactList);
+    } catch (err) {
+        console.error('Error fetching contacts from database:', err);
+        res.status(500).send('Error fetching contacts from database');
+    }
+});
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+const server = app.listen(8080, () => {
+    console.log(`Server is running on port 8080`);
+});
+
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+    });
+    ws.on('close', () => {
+        console.log('Client disconnected');
+    });
+});
