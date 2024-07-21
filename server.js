@@ -80,10 +80,7 @@ app.post('/send', async (req, res) => {
     const { message, to, isGroup } = req.body;
     const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
 
-    console.log(`Sending message: ${message} to: ${to}`);
-
     if (!message || !to) {
-        console.error('Message or recipient number is missing');
         return res.status(400).json({ error: 'Message or recipient number is missing' });
     }
 
@@ -91,7 +88,6 @@ app.post('/send', async (req, res) => {
         if (isGroup) {
             const group = await Group.findOne({ _id: to });
             if (group) {
-                // Sending message to all group members
                 for (const member of group.members) {
                     await client.messages.create({
                         body: `Group message from ${from}: ${message}`,
@@ -103,32 +99,24 @@ app.post('/send', async (req, res) => {
                 }
                 res.status(200).json({ message: 'Group message sent' });
             } else {
-                console.error('Group not found');
                 res.status(404).json({ error: 'Group not found' });
             }
         } else {
-            // Sending message to an individual contact
             await client.messages.create({
                 body: message,
-                from: from, // Ensure this is a Twilio WhatsApp number
-                to: `whatsapp:${standardizeNumber(to)}`
+                from: from,
+                to: `whatsapp:${to}`
             });
-            const newMessage = new Message({ from, to: standardizeNumber(to), body: message });
+            const newMessage = new Message({ from, to, body: message });
             await newMessage.save();
             res.status(200).json({ message: 'Message sent' });
         }
-
-        // Notify all WebSocket clients
-        wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ from, to, message }));
-            }
-        });
     } catch (error) {
         console.error('Error sending message:', error);
         res.status(500).json({ error: 'Error sending message', details: error.message });
     }
 });
+
 
 // Endpoint to create a group
 app.post('/create-group', (req, res) => {
