@@ -131,7 +131,10 @@ app.post('/create-group', (req, res) => {
         return res.status(400).json({ error: 'Group name and members are required' });
     }
 
-    const newGroup = new Group({ name, members });
+    // Trim spaces and ensure correct phone number format
+    const formattedMembers = members.map(member => member.trim());
+
+    const newGroup = new Group({ name, members: formattedMembers });
 
     newGroup.save().then(group => {
         res.status(201).json({ message: 'Group created', group });
@@ -140,6 +143,7 @@ app.post('/create-group', (req, res) => {
         res.status(500).json({ error: 'Error creating group', details: err.message });
     });
 });
+
 
 // Endpoint to add a contact
 app.post('/add-contact', (req, res) => {
