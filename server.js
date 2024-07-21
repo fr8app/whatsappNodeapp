@@ -44,18 +44,18 @@ const Contact = mongoose.model('Contact', contactSchema);
 
 // Standardize contact number
 const standardizeNumber = (number) => {
-    // Remove spaces and special characters
-    let sanitizedNumber = number.replace(/\D+/g, '');
-    // Ensure it starts with 'whatsapp:'
-    if (!sanitizedNumber.startsWith('whatsapp:')) {
-        sanitizedNumber = `whatsapp:+${sanitizedNumber}`;
-    }
-    return sanitizedNumber;
+    // Remove all non-digit characters except for '+'
+    let sanitizedNumber = number.replace(/[^\d+]/g, '');
+    // Check if the number is valid (must contain country code and number part)
+    const validNumberPattern = /^\+\d{10,15}$/;
+    return validNumberPattern.test(sanitizedNumber) ? sanitizedNumber : null;
 };
 
 // Helper function to get contact name by number
 const getContactName = async (number) => {
-    const contact = await Contact.findOne({ number: standardizeNumber(number) });
+    const standardizedNumber = standardizeNumber(number);
+    if (!standardizedNumber) return number;
+    const contact = await Contact.findOne({ number: standardizedNumber });
     return contact ? contact.name : number;
 };
 
@@ -64,9 +64,14 @@ app.post('/incoming', (req, res) => {
     const message = req.body.Body;
     const from = standardizeNumber(req.body.From);
 
+    if (!from) {
+        console.error('Received message from invalid number:', req.body.From);
+        return res.status(400).send('Invalid phone number format.');
+    }
+
     console.log(`Received message from ${from}: ${message}`);
 
-    const newMessage = new Message({ from, body: message, to: standardizeNumber('whatsapp:+18434843838') });
+    const newMessage = new Message({ from, body: message, to: standardizeNumber('+18434843838') });
     newMessage.save().then(() => {
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
@@ -86,7 +91,7 @@ app.post('/incoming', (req, res) => {
 // Endpoint to send messages to customers/drivers or groups
 app.post('/send', async (req, res) => {
     const { message, to, isGroup } = req.body;
-    const from = 'whatsapp:+18434843838'; // Your Twilio WhatsApp number
+    const from = '+18434843838'; // Your Twilio WhatsApp number
 
     console.log(`Sending message: ${message} to: ${to}, isGroup: ${isGroup}`);
 
@@ -101,12 +106,16 @@ app.post('/send', async (req, res) => {
             if (group) {
                 for (const member of group.members) {
                     const formattedMember = standardizeNumber(member);
+                    if (!formattedMember) {
+                        console.error('Invalid member number:', member);
+                        continue;
+                    }
                     await client.messages.create({
                         body: `Group message from ${from}: ${message}`,
                         from: from,
-                        to: formattedMember
+                        to: `whatsapp:${formattedMember}`
                     });
-                    const newMessage = new Message({ from, to: formattedMember, body: `Group message from ${from}: ${message}` });
+                    const newMessage = new Message({ from: `whatsapp:${from}`, to: formattedMember, body: `Group message from ${from}: ${message}` });
                     await newMessage.save();
                 }
                 res.status(200).json({ message: 'Group message sent' });
@@ -116,12 +125,16 @@ app.post('/send', async (req, res) => {
             }
         } else {
             const formattedTo = standardizeNumber(to);
+            if (!formattedTo) {
+                console.error('Invalid recipient number:', to);
+                return res.status(400).json({ error: 'Invalid recipient number' });
+            }
             await client.messages.create({
                 body: message,
-                from: from,
-                to: formattedTo
+                from: `whatsapp:${from}`,
+                to: `whatsapp:${formattedTo}`
             });
-            const newMessage = new Message({ from, to: formattedTo, body: message });
+            const newMessage = new Message({ from: `whatsapp:${from}`, to: formattedTo, body: message });
             await newMessage.save();
             res.status(200).json({ message: 'Message sent' });
         }
@@ -140,7 +153,7 @@ app.post('/create-group', (req, res) => {
     }
 
     // Ensure all members' phone numbers are properly formatted
-    const formattedMembers = members.map(member => standardizeNumber(member));
+    const formattedMembers = members.map(member => standardizeNumber(member)).filter(member => member !== null);
 
     const newGroup = new Group({ name, members: formattedMembers });
 
@@ -160,7 +173,12 @@ app.post('/add-contact', (req, res) => {
         return res.status(400).json({ error: 'Contact name and number are required' });
     }
 
-    const newContact = new Contact({ name, number: standardizeNumber(number) });
+    const formattedNumber = standardizeNumber(number);
+    if (!formattedNumber) {
+        return res.status(400).json({ error: 'Invalid contact number format' });
+    }
+
+    const newContact = new Contact({ name, number: formattedNumber });
 
     newContact.save().then(contact => {
         res.status(201).json({ message: 'Contact added', contact });
@@ -190,9 +208,10 @@ app.get('/contacts', async (req, res) => {
             const from = standardizeNumber(msg.from);
             const to = standardizeNumber(msg.to);
 
-            if (from !== standardizeNumber('whatsapp:+18434843838')) {
+            if (from && from !== standardizeNumber('+18434843838')) {
                 contactMap[from] = { number: from };
-            } else {
+            }
+            if (to && to !== standardizeNumber('+18434843838')) {
                 contactMap[to] = { number: to };
             }
         });
