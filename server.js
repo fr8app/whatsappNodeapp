@@ -43,7 +43,12 @@ const Group = mongoose.model('Group', groupSchema);
 const Contact = mongoose.model('Contact', contactSchema);
 
 // Standardize contact number
-const standardizeNumber = (number) => number.replace('whatsapp:', '');
+const standardizeNumber = (number) => {
+    // Remove spaces
+    const sanitizedNumber = number.replace(/\s+/g, '');
+    // Ensure it starts with 'whatsapp:'
+    return sanitizedNumber.startsWith('whatsapp:') ? sanitizedNumber : `whatsapp:${sanitizedNumber}`;
+};
 
 // Helper function to get contact name by number
 const getContactName = async (number) => {
@@ -92,12 +97,13 @@ app.post('/send', async (req, res) => {
             const group = await Group.findOne({ _id: to });
             if (group) {
                 for (const member of group.members) {
+                    const formattedMember = standardizeNumber(member);
                     await client.messages.create({
                         body: `Group message from ${from}: ${message}`,
                         from: from,
-                        to: `whatsapp:${member}`
+                        to: formattedMember
                     });
-                    const newMessage = new Message({ from, to: member, body: `Group message from ${from}: ${message}` });
+                    const newMessage = new Message({ from, to: formattedMember, body: `Group message from ${from}: ${message}` });
                     await newMessage.save();
                 }
                 res.status(200).json({ message: 'Group message sent' });
@@ -106,12 +112,13 @@ app.post('/send', async (req, res) => {
                 res.status(404).json({ error: 'Group not found' });
             }
         } else {
+            const formattedTo = standardizeNumber(to);
             await client.messages.create({
                 body: message,
                 from: from,
-                to: `whatsapp:${to}`
+                to: formattedTo
             });
-            const newMessage = new Message({ from, to, body: message });
+            const newMessage = new Message({ from, to: formattedTo, body: message });
             await newMessage.save();
             res.status(200).json({ message: 'Message sent' });
         }
@@ -123,6 +130,7 @@ app.post('/send', async (req, res) => {
 
 
 
+
 // Endpoint to create a group
 app.post('/create-group', (req, res) => {
     const { name, members } = req.body;
@@ -131,8 +139,8 @@ app.post('/create-group', (req, res) => {
         return res.status(400).json({ error: 'Group name and members are required' });
     }
 
-    // Trim spaces and ensure correct phone number format
-    const formattedMembers = members.map(member => member.trim());
+    // Ensure all members' phone numbers are properly formatted
+    const formattedMembers = members.map(member => standardizeNumber(member));
 
     const newGroup = new Group({ name, members: formattedMembers });
 
@@ -143,6 +151,7 @@ app.post('/create-group', (req, res) => {
         res.status(500).json({ error: 'Error creating group', details: err.message });
     });
 });
+
 
 
 // Endpoint to add a contact
