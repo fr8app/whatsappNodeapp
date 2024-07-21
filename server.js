@@ -112,7 +112,7 @@ app.post('/send', async (req, res) => {
                     }
                     await client.messages.create({
                         body: `Group message from ${from}: ${message}`,
-                        from: from,
+                        from: `whatsapp:${from}`,
                         to: `whatsapp:${formattedMember}`
                     });
                     const newMessage = new Message({ from: `whatsapp:${from}`, to: formattedMember, body: `Group message from ${from}: ${message}` });
@@ -237,7 +237,7 @@ app.get('/', (req, res) => {
 });
 
 const server = app.listen(8080, () => {
-    console.log(`Server is running on port 8080`);
+    console.log('Server is running on port 8080');
 });
 
 // Create WebSocket server
