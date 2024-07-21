@@ -183,13 +183,13 @@
         #sendMessage button:hover {
             background-color: #064e48;
         }
-        #createGroup, #addContactForm, #forwardMessageForm {
+        #createGroupForm, #addContactForm, #forwardMessageForm {
             display: flex;
             border-top: 1px solid #ddd;
             padding: 10px;
             background-color: #fafafa;
         }
-        #createGroup input, #addContactForm input, #forwardMessageForm input {
+        #createGroupForm input, #addContactForm input, #forwardMessageForm input {
             flex: 1;
             padding: 10px;
             margin: 5px;
@@ -197,7 +197,7 @@
             border-radius: 5px;
             outline: none;
         }
-        #createGroup button, #addContactForm button, #forwardMessageForm button {
+        #createGroupForm button, #addContactForm button, #forwardMessageForm button {
             padding: 10px;
             background-color: #075e54;
             color: white;
@@ -206,7 +206,7 @@
             cursor: pointer;
             margin: 5px;
         }
-        #createGroup button:hover, #addContactForm button:hover, #forwardMessageForm button:hover {
+        #createGroupForm button:hover, #addContactForm button:hover, #forwardMessageForm button:hover {
             background-color: #064e48;
         }
         #closeForwardMessage {
@@ -253,17 +253,17 @@
                 <textarea id="message" placeholder="Enter message" required></textarea>
                 <button type="submit">Send</button>
             </form>
-            <form id="createGroupForm" style="display: none; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
+            <form id="createGroupForm" style="display: none;">
                 <input type="text" id="groupName" placeholder="Enter group name" required>
                 <input type="text" id="groupMembers" placeholder="Enter member numbers, separated by commas" required>
                 <button type="submit">Create Group</button>
             </form>
-            <form id="addContactForm" style="display: none; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
+            <form id="addContactForm" style="display: none;">
                 <input type="text" id="contactName" placeholder="Enter contact name" required>
                 <input type="text" id="contactNumber" placeholder="Enter contact number" required>
                 <button type="submit">Add Contact</button>
             </form>
-            <form id="forwardMessageForm" class="forward-message-wrapper" style="display: none; border-top: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
+            <form id="forwardMessageForm" class="forward-message-wrapper" style="display: none;">
                 <input type="hidden" id="messageToForward">
                 <input type="text" id="forwardToNumber" placeholder="Enter number to forward to" required>
                 <button type="submit">Forward</button>
@@ -409,12 +409,6 @@
         }).catch(error => {
             console.error('Error:', error);
         });
-    });
-
-    document.getElementById('addContactButton').addEventListener('click', () => {
-        document.getElementById('addContactForm').style.display = 'flex';
-        document.getElementById('createGroupForm').style.display = 'none';
-        document.getElementById('forwardMessageForm').style.display = 'none';
     });
 
     document.getElementById('addContact').addEventListener('click', () => {
