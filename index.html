@@ -307,16 +307,6 @@
             const { from, message, to } = JSON.parse(event.data);
             addMessage(from, message, to === 'whatsapp:+18434843838');
         };
-
-        // Fetch and display the chat history
-        fetch('/messages')
-            .then(response => response.json())
-            .then(messages => {
-                messages.reverse().forEach(msg => {
-                    addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                });
-            })
-            .catch(error => console.error('Error fetching messages:', error));
     });
 
     document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
