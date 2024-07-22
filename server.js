@@ -12,7 +12,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
-const authToken = 'ad1156294187e154f53ba483284d018b';
+const authToken = 'c5924dd861795f8e2db2b4420a5f0353';
 const client = new twilio(accountSid, authToken);
 
 // Connect to MongoDB
