@@ -44,9 +44,7 @@ const Contact = mongoose.model('Contact', contactSchema);
 
 // Standardize contact number
 const standardizeNumber = (number) => {
-    // Remove all non-digit characters except for '+'
     let sanitizedNumber = number.replace(/[^\d+]/g, '');
-    // Check if the number is valid (must contain country code and number part)
     const validNumberPattern = /^\+\d{10,15}$/;
     return validNumberPattern.test(sanitizedNumber) ? sanitizedNumber : null;
 };
@@ -152,7 +150,6 @@ app.post('/create-group', (req, res) => {
         return res.status(400).json({ error: 'Group name and members are required' });
     }
 
-    // Ensure all members' phone numbers are properly formatted
     const formattedMembers = members.map(member => standardizeNumber(member)).filter(member => member !== null);
 
     const newGroup = new Group({ name, members: formattedMembers });
