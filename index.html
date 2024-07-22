@@ -3,6 +3,7 @@
 <head>
     <title>WhatsApp Interface</title>
     <style>
+        /* Your existing styles */
         body {
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
@@ -289,7 +290,11 @@
                     li.textContent = contact.name || contact.number;
                     li.dataset.number = contact.number;
                     li.dataset.isGroup = contact.isGroup || false;
-                    li.addEventListener('click', () => loadChat(contact.number, contact.isGroup || false));
+                    li.addEventListener('click', () => {
+                        currentContact = contact.number;
+                        currentIsGroup = contact.isGroup || false;
+                        loadChat(contact.number, contact.isGroup || false);
+                    });
                     contactList.appendChild(li);
                 });
 
@@ -298,6 +303,8 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.chatId) {
+                            currentContact = data.chatId;
+                            currentIsGroup = data.isGroup;
                             loadChat(data.chatId, data.isGroup);
                         }
                     })
@@ -313,12 +320,8 @@
             addMessage(from, message, to === 'whatsapp:+18434843838');
         };
 
-        // Fetch and display the chat history
+        // Fetch and display the latest chat history
         const loadChat = async (number, isGroup) => {
-            currentContact = number;
-            currentIsGroup = isGroup;
-            skip = 0;
-
             const response = await fetch('/contacts');
             const contacts = await response.json();
             const contact = contacts.find(contact => contact.number === number);
@@ -332,33 +335,149 @@
             const chat = document.getElementById('chatMessages');
             chat.innerHTML = '';
 
-            // Fetch and display the chat history for the selected contact or group
+            // Reset pagination
+            skip = 0;
+
+            // Fetch and display the latest chat history for the selected contact or group
             fetch(`/messages?contact=${number}&limit=${limit}&skip=${skip}`)
                 .then(response => response.json())
                 .then(messages => {
                     messages.reverse().forEach(msg => {
                         addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                     });
-                    skip += limit;
+                    skip += limit; // Update skip for the next batch of messages
                 })
                 .catch(error => console.error('Error fetching messages:', error));
         };
 
-        document.getElementById('chatMessages').addEventListener('scroll', () => {
-            const chat = document.getElementById('chatMessages');
-            if (chat.scrollTop === 0 && currentContact) {
+        // Event listener to load older messages when scrolling up
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.addEventListener('scroll', () => {
+            if (chatMessages.scrollTop === 0 && currentContact !== null) {
                 fetch(`/messages?contact=${currentContact}&limit=${limit}&skip=${skip}`)
                     .then(response => response.json())
                     .then(messages => {
-                        const oldHeight = chat.scrollHeight;
                         messages.reverse().forEach(msg => {
                             addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838', true);
                         });
-                        skip += limit;
-                        chat.scrollTop = chat.scrollHeight - oldHeight;
+                        skip += limit; // Update skip for the next batch of messages
                     })
                     .catch(error => console.error('Error fetching messages:', error));
             }
+        });
+
+        document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const number = document.querySelector('input#to').value;
+            const message = document.querySelector('textarea#message').value;
+            const isGroup = document.querySelector('input#to').dataset.isGroup === 'true';
+
+            fetch('/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    to: number,
+                    message: message,
+                    isGroup: isGroup
+                })
+            }).then(response => response.json()).then(data => {
+                if (data.message) {
+                    addMessage('whatsapp:+18434843838', message, true);
+                    document.querySelector('textarea#message').value = '';
+                    document.getElementById('replyMessage').style.display = 'none';
+                    document.getElementById('replyMessageText').textContent = '';
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+            });
+        });
+
+        document.querySelector('form#createGroupForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const name = document.querySelector('input#groupName').value;
+            const members = document.querySelector('input#groupMembers').value.split(',');
+
+            fetch('/create-group', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    members: members
+                })
+            }).then(response => response.json()).then(data => {
+                if (data.group) {
+                    alert(`Group created with ID: ${data.group._id}`);
+                    location.reload();
+                }
+            }).catch(error => {
+                console.error('Error creating group:', error);
+            });
+        });
+
+        document.querySelector('form#addContactForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const name = document.querySelector('input#contactName').value;
+            const number = document.querySelector('input#contactNumber').value;
+
+            fetch('/add-contact', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    number: number
+                })
+            }).then(response => response.json()).then(data => {
+                if (data.contact) {
+                    alert(`Contact added: ${data.contact.name}`);
+                    location.reload();
+                }
+            }).catch(error => {
+                console.error('Error adding contact:', error);
+            });
+        });
+
+        document.querySelector('form#forwardMessageForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const message = document.querySelector('input#messageToForward').value;
+            const to = document.querySelector('input#forwardToNumber').value;
+
+            fetch('/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    to: to,
+                    message: message,
+                    isGroup: false
+                })
+            }).then(response => response.json()).then(data => {
+                if (data.message) {
+                    alert('Message forwarded successfully');
+                    document.querySelector('input#forwardToNumber').value = '';
+                    document.querySelector('form#forwardMessageForm').style.display = 'none';
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+            });
+        });
+
+        document.getElementById('addContact').addEventListener('click', () => {
+            document.getElementById('addContactForm').style.display = 'flex';
+            document.getElementById('createGroupForm').style.display = 'none';
+            document.getElementById('forwardMessageForm').style.display = 'none';
+        });
+
+        document.getElementById('createGroup').addEventListener('click', () => {
+            document.getElementById('createGroupForm').style.display = 'flex';
+            document.getElementById('addContactForm').style.display = 'none';
+            document.getElementById('forwardMessageForm').style.display = 'none';
         });
 
         const addMessage = async (from, message, isOutgoing, prepend = false) => {
@@ -386,7 +505,7 @@
             
             msgDiv.appendChild(msgHeader);
             msgDiv.appendChild(document.createTextNode(message));
-
+            
             if (prepend) {
                 chat.insertBefore(msgDiv, chat.firstChild);
             } else {
