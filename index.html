@@ -274,6 +274,11 @@
     
     <script>
     document.addEventListener('DOMContentLoaded', (event) => {
+        let currentContact = null;
+        let currentIsGroup = false;
+        let skip = 0;
+        const limit = 20;
+
         // Fetch and display the contacts and groups
         fetch('/contacts')
             .then(response => response.json())
@@ -307,200 +312,112 @@
             const { from, message, to } = JSON.parse(event.data);
             addMessage(from, message, to === 'whatsapp:+18434843838');
         };
-    });
 
-    document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const number = document.querySelector('input#to').value;
-        const message = document.querySelector('textarea#message').value;
-        const isGroup = document.querySelector('input#to').dataset.isGroup === 'true';
+        // Fetch and display the chat history
+        const loadChat = async (number, isGroup) => {
+            currentContact = number;
+            currentIsGroup = isGroup;
+            skip = 0;
 
-        fetch('/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                to: number,
-                message: message,
-                isGroup: isGroup
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.message) {
-                addMessage('whatsapp:+18434843838', message, true);
-                document.querySelector('textarea#message').value = '';
-                document.getElementById('replyMessage').style.display = 'none';
-                document.getElementById('replyMessageText').textContent = '';
+            const response = await fetch('/contacts');
+            const contacts = await response.json();
+            const contact = contacts.find(contact => contact.number === number);
+            const contactName = contact ? contact.name : number;
+
+            document.querySelector('#chatHeader').textContent = `Chat with ${contactName}`;
+            document.querySelector('input#to').value = number;
+            document.querySelector('input#to').dataset.isGroup = isGroup;
+
+            // Clear the chat messages
+            const chat = document.getElementById('chatMessages');
+            chat.innerHTML = '';
+
+            // Fetch and display the chat history for the selected contact or group
+            fetch(`/messages?contact=${number}&limit=${limit}&skip=${skip}`)
+                .then(response => response.json())
+                .then(messages => {
+                    messages.reverse().forEach(msg => {
+                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                    });
+                    skip += limit;
+                })
+                .catch(error => console.error('Error fetching messages:', error));
+        };
+
+        document.getElementById('chatMessages').addEventListener('scroll', () => {
+            const chat = document.getElementById('chatMessages');
+            if (chat.scrollTop === 0 && currentContact) {
+                fetch(`/messages?contact=${currentContact}&limit=${limit}&skip=${skip}`)
+                    .then(response => response.json())
+                    .then(messages => {
+                        const oldHeight = chat.scrollHeight;
+                        messages.reverse().forEach(msg => {
+                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838', true);
+                        });
+                        skip += limit;
+                        chat.scrollTop = chat.scrollHeight - oldHeight;
+                    })
+                    .catch(error => console.error('Error fetching messages:', error));
             }
-        }).catch(error => {
-            console.error('Error:', error);
         });
-    });
 
-    document.querySelector('form#createGroupForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = document.querySelector('input#groupName').value;
-        const members = document.querySelector('input#groupMembers').value.split(',');
+        const addMessage = async (from, message, isOutgoing, prepend = false) => {
+            const response = await fetch('/contacts');
+            const contacts = await response.json();
+            const contact = contacts.find(contact => contact.number === from);
+            const contactName = contact ? contact.name : from;
 
-        fetch('/create-group', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                members: members
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.group) {
-                alert(`Group created with ID: ${data.group._id}`);
-                location.reload();
+            const chat = document.getElementById('chatMessages');
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
+            
+            const msgHeader = document.createElement('div');
+            msgHeader.classList.add('message-header');
+            
+            const sender = document.createElement('span');
+            sender.textContent = contactName;
+
+            const options = document.createElement('div');
+            options.classList.add('message-options');
+            options.innerHTML = '...<ul><li onclick="replyMessage(\'' + contactName + '\', \'' + message + '\')">Reply</li><li onclick="forwardMessage(\'' + message + '\')">Forward</li></ul>';
+
+            msgHeader.appendChild(sender);
+            msgHeader.appendChild(options);
+            
+            msgDiv.appendChild(msgHeader);
+            msgDiv.appendChild(document.createTextNode(message));
+
+            if (prepend) {
+                chat.insertBefore(msgDiv, chat.firstChild);
+            } else {
+                chat.appendChild(msgDiv);
+                chat.scrollTop = chat.scrollHeight; // Scroll to bottom
             }
-        }).catch(error => {
-            console.error('Error creating group:', error);
-        });
-    });
+        };
 
-    document.querySelector('form#addContactForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = document.querySelector('input#contactName').value;
-        const number = document.querySelector('input#contactNumber').value;
+        const replyMessage = (from, message) => {
+            const replyMessageDiv = document.getElementById('replyMessage');
+            replyMessageDiv.style.display = 'block';
+            document.getElementById('replyMessageText').textContent = `Replying to: @${from}: ${message}`;
+        };
 
-        fetch('/add-contact', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                number: number
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.contact) {
-                alert(`Contact added: ${data.contact.name}`);
-                location.reload();
-            }
-        }).catch(error => {
-            console.error('Error adding contact:', error);
-        });
-    });
+        const closeReplyMessage = () => {
+            const replyMessageDiv = document.getElementById('replyMessage');
+            replyMessageDiv.style.display = 'none';
+            document.getElementById('replyMessageText').textContent = '';
+        };
 
-    document.querySelector('form#forwardMessageForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const message = document.querySelector('input#messageToForward').value;
-        const to = document.querySelector('input#forwardToNumber').value;
+        const forwardMessage = (message) => {
+            document.querySelector('form#forwardMessageForm').style.display = 'flex';
+            document.querySelector('input#messageToForward').value = message;
+            document.getElementById('addContactForm').style.display = 'none';
+            document.getElementById('createGroupForm').style.display = 'none';
+        };
 
-        fetch('/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                to: to,
-                message: message,
-                isGroup: false
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.message) {
-                alert('Message forwarded successfully');
-                document.querySelector('input#forwardToNumber').value = '';
-                document.querySelector('form#forwardMessageForm').style.display = 'none';
-            }
-        }).catch(error => {
-            console.error('Error:', error);
-        });
-    });
-
-    document.getElementById('addContact').addEventListener('click', () => {
-        document.getElementById('addContactForm').style.display = 'flex';
-        document.getElementById('createGroupForm').style.display = 'none';
-        document.getElementById('forwardMessageForm').style.display = 'none';
-    });
-
-    document.getElementById('createGroup').addEventListener('click', () => {
-        document.getElementById('createGroupForm').style.display = 'flex';
-        document.getElementById('addContactForm').style.display = 'none';
-        document.getElementById('forwardMessageForm').style.display = 'none';
-    });
-
-    const loadChat = async (number, isGroup) => {
-        const response = await fetch('/contacts');
-        const contacts = await response.json();
-        const contact = contacts.find(contact => contact.number === number);
-        const contactName = contact ? contact.name : number;
-
-        document.querySelector('#chatHeader').textContent = `Chat with ${contactName}`;
-        document.querySelector('input#to').value = number;
-        document.querySelector('input#to').dataset.isGroup = isGroup;
-
-        // Clear the chat messages
-        const chat = document.getElementById('chatMessages');
-        chat.innerHTML = '';
-
-        // Fetch and display the chat history for the selected contact or group
-        fetch(`/messages?contact=${number}`)
-            .then(response => response.json())
-            .then(messages => {
-                messages.reverse().forEach(msg => {
-                    addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                });
-            })
-            .catch(error => console.error('Error fetching messages:', error));
-    };
-
-    const addMessage = async (from, message, isOutgoing) => {
-        const response = await fetch('/contacts');
-        const contacts = await response.json();
-        const contact = contacts.find(contact => contact.number === from);
-        const contactName = contact ? contact.name : from;
-
-        const chat = document.getElementById('chatMessages');
-        const msgDiv = document.createElement('div');
-        msgDiv.classList.add(isOutgoing ? 'outgoing' : 'incoming');
-        
-        const msgHeader = document.createElement('div');
-        msgHeader.classList.add('message-header');
-        
-        const sender = document.createElement('span');
-        sender.textContent = contactName;
-
-        const options = document.createElement('div');
-        options.classList.add('message-options');
-        options.innerHTML = '...<ul><li onclick="replyMessage(\'' + contactName + '\', \'' + message + '\')">Reply</li><li onclick="forwardMessage(\'' + message + '\')">Forward</li></ul>';
-
-        msgHeader.appendChild(sender);
-        msgHeader.appendChild(options);
-        
-        msgDiv.appendChild(msgHeader);
-        msgDiv.appendChild(document.createTextNode(message));
-        
-        chat.appendChild(msgDiv);
-        chat.scrollTop = chat.scrollHeight; // Scroll to bottom
-    };
-
-    const replyMessage = (from, message) => {
-        const replyMessageDiv = document.getElementById('replyMessage');
-        replyMessageDiv.style.display = 'block';
-        document.getElementById('replyMessageText').textContent = `Replying to: @${from}: ${message}`;
-    };
-
-    const closeReplyMessage = () => {
-        const replyMessageDiv = document.getElementById('replyMessage');
-        replyMessageDiv.style.display = 'none';
-        document.getElementById('replyMessageText').textContent = '';
-    };
-
-    const forwardMessage = (message) => {
-        document.querySelector('form#forwardMessageForm').style.display = 'flex';
-        document.querySelector('input#messageToForward').value = message;
-        document.getElementById('addContactForm').style.display = 'none';
-        document.getElementById('createGroupForm').style.display = 'none';
-    };
-
-    const closeForwardMessage = () => {
-        document.querySelector('form#forwardMessageForm').style.display = 'none';
-        document.querySelector('input#messageToForward').value = '';
-    };
+        const closeForwardMessage = () => {
+            document.querySelector('form#forwardMessageForm').style.display = 'none';
+            document.querySelector('input#messageToForward').value = '';
+        };
     </script>
 </body>
 </html>
