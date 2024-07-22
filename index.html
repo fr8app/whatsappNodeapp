@@ -3,225 +3,7 @@
 <head>
     <title>WhatsApp Interface</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        #container {
-            width: 80%;
-            max-width: 1200px;
-            height: 80%;
-            background-color: white;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
-            overflow: hidden;
-            display: flex;
-        }
-        #contacts {
-            width: 25%;
-            border-right: 1px solid #ddd;
-            background-color: #f8f8f8;
-            overflow-y: scroll;
-            position: relative;
-        }
-        #contacts ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        #contacts li {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-            cursor: pointer;
-        }
-        #contacts li:hover {
-            background-color: #eee;
-        }
-        #header {
-            background-color: #075e54;
-            color: white;
-            padding: 10px;
-            text-align: center;
-            font-size: 24px;
-            position: relative;
-        }
-        #header .dropdown {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            cursor: pointer;
-        }
-        #header .dropdown ul {
-            display: none;
-            position: absolute;
-            top: 30px;
-            right: 0;
-            background-color: white;
-            list-style: none;
-            padding: 5px;
-            border: 1px solid #ddd;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
-        }
-        #header .dropdown:hover ul {
-            display: block;
-        }
-        #header .dropdown ul li {
-            padding: 5px;
-            cursor: pointer;
-        }
-        #header .dropdown ul li:hover {
-            background-color: #eee;
-        }
-        #chat {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: #e5ddd5;
-        }
-        #chatHeader {
-            background-color: #075e54;
-            color: white;
-            padding: 10px;
-            text-align: center;
-        }
-        #chatMessages {
-            flex: 1;
-            padding: 10px;
-            overflow-y: scroll;
-        }
-        #chatMessages div {
-            margin: 5px 0;
-            padding: 10px;
-            border-radius: 5px;
-            max-width: 60%;
-            position: relative;
-        }
-        .incoming {
-            background-color: #ffffff;
-            align-self: flex-start;
-        }
-        .outgoing {
-            background-color: #dcf8c6;
-            align-self: flex-end;
-            text-align: right;
-        }
-        .message-header {
-            font-size: 0.85em;
-            color: #555;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .message-options {
-            position: absolute;
-            top: 5px;
-            right: 10px;
-            cursor: pointer;
-        }
-        .message-options ul {
-            display: none;
-            list-style: none;
-            padding: 5px;
-            border: 1px solid #ddd;
-            background-color: #fff;
-            position: absolute;
-            top: 20px;
-            right: 0;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
-        }
-        .message-options:hover ul {
-            display: block;
-        }
-        #sendMessage {
-            display: flex;
-            flex-direction: column;
-            border-top: 1px solid #ddd;
-            padding: 10px;
-            background-color: #fafafa;
-        }
-        #replyMessage {
-            background-color: #f0f0f0;
-            padding: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            color: #555;
-            display: none;
-            position: relative;
-        }
-        #closeReplyMessage {
-            position: absolute;
-            right: 10px;
-            top: 5px;
-            cursor: pointer;
-            color: #555;
-            font-weight: bold;
-        }
-        #sendMessage input, #sendMessage textarea {
-            flex: 1;
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            outline: none;
-        }
-        #sendMessage button {
-            padding: 10px;
-            background-color: #075e54;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        #sendMessage button:hover {
-            background-color: #064e48;
-        }
-        #createGroupForm, #addContactForm, #forwardMessageForm {
-            display: flex;
-            border-top: 1px solid #ddd;
-            padding: 10px;
-            background-color: #fafafa;
-        }
-        #createGroupForm input, #addContactForm input, #forwardMessageForm input {
-            flex: 1;
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            outline: none;
-        }
-        #createGroupForm button, #addContactForm button, #forwardMessageForm button {
-            padding: 10px;
-            background-color: #075e54;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        #createGroupForm button:hover, #addContactForm button:hover, #forwardMessageForm button:hover {
-            background-color: #064e48;
-        }
-        #closeForwardMessage {
-            position: absolute;
-            right: 10px;
-            top: 5px;
-            cursor: pointer;
-            color: #555;
-            font-weight: bold;
-        }
-        .forward-message-wrapper {
-            display: flex;
-            align-items: center;
-            position: relative;
-        }
+        /* Existing styles... */
     </style>
 </head>
 <body>
@@ -269,6 +51,10 @@
                 <button type="submit">Forward</button>
                 <span id="closeForwardMessage" onclick="closeForwardMessage()">x</span>
             </form>
+            <form id="addMemberForm" style="display: none;">
+                <input type="text" id="newMember" placeholder="Enter member number" required>
+                <button type="submit">Add Member</button>
+            </form>
         </div>
     </div>
     
@@ -297,16 +83,6 @@
             const { from, message, to } = JSON.parse(event.data);
             addMessage(from, message, to === 'whatsapp:+18434843838');
         };
-
-        // Fetch and display the chat history
-        fetch('/messages')
-            .then(response => response.json())
-            .then(messages => {
-                messages.reverse().forEach(msg => {
-                    addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                });
-            })
-            .catch(error => console.error('Error fetching messages:', error));
     });
 
     document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
@@ -337,92 +113,6 @@
         });
     });
 
-    document.querySelector('form#createGroupForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = document.querySelector('input#groupName').value;
-        const members = document.querySelector('input#groupMembers').value.split(',');
-
-        fetch('/create-group', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                members: members
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.group) {
-                alert(`Group created with ID: ${data.group._id}`);
-                location.reload();
-            }
-        }).catch(error => {
-            console.error('Error creating group:', error);
-        });
-    });
-
-    document.querySelector('form#addContactForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = document.querySelector('input#contactName').value;
-        const number = document.querySelector('input#contactNumber').value;
-
-        fetch('/add-contact', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                number: number
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.contact) {
-                alert(`Contact added: ${data.contact.name}`);
-                location.reload();
-            }
-        }).catch(error => {
-            console.error('Error adding contact:', error);
-        });
-    });
-
-    document.querySelector('form#forwardMessageForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const message = document.querySelector('input#messageToForward').value;
-        const to = document.querySelector('input#forwardToNumber').value;
-
-        fetch('/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                to: to,
-                message: message,
-                isGroup: false
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.message) {
-                alert('Message forwarded successfully');
-                document.querySelector('input#forwardToNumber').value = '';
-                document.querySelector('form#forwardMessageForm').style.display = 'none';
-            }
-        }).catch(error => {
-            console.error('Error:', error);
-        });
-    });
-
-    document.getElementById('addContact').addEventListener('click', () => {
-        document.getElementById('addContactForm').style.display = 'flex';
-        document.getElementById('createGroupForm').style.display = 'none';
-        document.getElementById('forwardMessageForm').style.display = 'none';
-    });
-
-    document.getElementById('createGroup').addEventListener('click', () => {
-        document.getElementById('createGroupForm').style.display = 'flex';
-        document.getElementById('addContactForm').style.display = 'none';
-        document.getElementById('forwardMessageForm').style.display = 'none';
-    });
-
     const loadChat = async (number, isGroup) => {
         const response = await fetch('/contacts');
         const contacts = await response.json();
@@ -437,17 +127,41 @@
         const chat = document.getElementById('chatMessages');
         chat.innerHTML = '';
 
-        // Fetch and display the chat history for the selected contact or group
-        fetch('/messages')
-            .then(response => response.json())
-            .then(messages => {
-                messages.reverse().forEach(msg => {
-                    if (msg.from === number || msg.to === number || (isGroup && msg.groupId === number)) {
-                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+        // Fetch and display the recent chat history for the selected contact or group
+        let skip = 0;
+        const limit = 20;
+        let loadingMessages = false;
+
+        const loadMessages = () => {
+            if (loadingMessages) return;
+            loadingMessages = true;
+
+            fetch(`/messages?contact=${number}&limit=${limit}&skip=${skip}`)
+                .then(response => response.json())
+                .then(messages => {
+                    if (messages.length > 0) {
+                        messages.forEach(msg => {
+                            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+                        });
+                        skip += limit;
                     }
+                    loadingMessages = false;
+                })
+                .catch(error => {
+                    console.error('Error fetching messages:', error);
+                    loadingMessages = false;
                 });
-            })
-            .catch(error => console.error('Error fetching messages:', error));
+        };
+
+        // Load the initial messages
+        loadMessages();
+
+        // Set up the scroll event to load more messages when scrolled to the top
+        chat.addEventListener('scroll', () => {
+            if (chat.scrollTop === 0) {
+                loadMessages();
+            }
+        });
     };
 
     const addMessage = async (from, message, isOutgoing) => {
