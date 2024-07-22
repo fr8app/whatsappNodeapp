@@ -188,13 +188,27 @@ app.post('/add-contact', (req, res) => {
     });
 });
 
-// Endpoint to fetch all messages
-app.get('/messages', (req, res) => {
-    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => {
+// Endpoint to fetch messages with pagination
+app.get('/messages', async (req, res) => {
+    const { contact, page = 1, limit = 20 } = req.query;
+
+    try {
+        const query = {
+            $or: [{ from: contact }, { to: contact }]
+        };
+        
+        const messages = await Message.find(query)
+            .sort({ date: -1 })
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit));
+
+        res.json(messages);
+    } catch (err) {
         console.error('Error fetching messages:', err);
         res.status(500).send('Error fetching messages');
-    });
+    }
 });
+
 
 // Endpoint to fetch unique contacts from messages and groups
 app.get('/contacts', async (req, res) => {
