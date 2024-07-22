@@ -111,11 +111,11 @@ app.post('/send', async (req, res) => {
                         continue;
                     }
                     await client.messages.create({
-                        body: `Group message from ${from}: ${message}`,
+                        body: `${message}`,
                         from: `whatsapp:${from}`,
                         to: `whatsapp:${formattedMember}`
                     });
-                    const newMessage = new Message({ from: `whatsapp:${from}`, to: formattedMember, body: `Group message from ${from}: ${message}` });
+                    const newMessage = new Message({ from: `whatsapp:${from}`, to: formattedMember, body: `${message}` });
                     await newMessage.save();
                 }
                 res.status(200).json({ message: 'Group message sent' });
