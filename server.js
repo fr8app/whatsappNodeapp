@@ -12,7 +12,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
-const authToken = 'c5924dd861795f8e2db2b4420a5f0353';
+const authToken = 'ad1156294187e154f53ba483284d018b';
 const client = new twilio(accountSid, authToken);
 
 // Connect to MongoDB
@@ -111,11 +111,11 @@ app.post('/send', async (req, res) => {
                         continue;
                     }
                     await client.messages.create({
-                        body: `${message}`,
+                        body: `Group message from ${from}: ${message}`,
                         from: `whatsapp:${from}`,
                         to: `whatsapp:${formattedMember}`
                     });
-                    const newMessage = new Message({ from: `whatsapp:${from}`, to: formattedMember, body: `${message}` });
+                    const newMessage = new Message({ from: `whatsapp:${from}`, to: formattedMember, body: `Group message from ${from}: ${message}` });
                     await newMessage.save();
                 }
                 res.status(200).json({ message: 'Group message sent' });
@@ -188,29 +188,13 @@ app.post('/add-contact', (req, res) => {
     });
 });
 
-// Endpoint to fetch messages with pagination
-app.get('/messages', async (req, res) => {
-    const { contact, before } = req.query;
-    const limit = 20; // Number of messages per page
-    let query = {
-        $or: [{ from: contact }, { to: contact }]
-    };
-
-    if (before) {
-        query.date = { $lt: new Date(before) };
-    }
-
-    try {
-        const messages = await Message.find(query)
-            .sort({ date: -1 })
-            .limit(limit);
-        res.json(messages);
-    } catch (err) {
+// Endpoint to fetch all messages
+app.get('/messages', (req, res) => {
+    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => {
         console.error('Error fetching messages:', err);
         res.status(500).send('Error fetching messages');
-    }
+    });
 });
-
 
 // Endpoint to fetch unique contacts from messages and groups
 app.get('/contacts', async (req, res) => {
