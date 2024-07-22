@@ -188,7 +188,7 @@ app.post('/add-contact', (req, res) => {
     });
 });
 
-// Endpoint to fetch all messages
+// Endpoint to fetch messages with pagination
 app.get('/messages', async (req, res) => {
     const { contact, limit = 20, skip = 0 } = req.query;
 
