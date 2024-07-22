@@ -196,6 +196,23 @@ app.get('/messages', (req, res) => {
     });
 });
 
+// Endpoint to fetch the latest contact or group
+app.get('/latest-chat', async (req, res) => {
+    try {
+        const latestMessage = await Message.findOne().sort({ date: -1 }).exec();
+        if (latestMessage) {
+            const isGroup = !!(await Group.findOne({ members: { $in: [latestMessage.from, latestMessage.to] } }));
+            const chatId = isGroup ? latestMessage.to : latestMessage.from;
+            res.json({ chatId, isGroup });
+        } else {
+            res.status(404).json({ error: 'No chats found' });
+        }
+    } catch (err) {
+        console.error('Error fetching latest chat:', err);
+        res.status(500).send('Error fetching latest chat');
+    }
+});
+
 // Endpoint to fetch unique contacts from messages and groups
 app.get('/contacts', async (req, res) => {
     try {
