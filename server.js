@@ -189,11 +189,22 @@ app.post('/add-contact', (req, res) => {
 });
 
 // Endpoint to fetch all messages
-app.get('/messages', (req, res) => {
-    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => {
+app.get('/messages', async (req, res) => {
+    const { contact, limit = 20, skip = 0 } = req.query;
+
+    try {
+        const messages = await Message.find({
+            $or: [{ from: contact }, { to: contact }]
+        })
+        .sort({ date: -1 })
+        .skip(parseInt(skip))
+        .limit(parseInt(limit));
+
+        res.json(messages.reverse());
+    } catch (err) {
         console.error('Error fetching messages:', err);
         res.status(500).send('Error fetching messages');
-    });
+    }
 });
 
 // Endpoint to fetch unique contacts from messages and groups
