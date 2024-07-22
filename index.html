@@ -287,6 +287,16 @@
                     li.addEventListener('click', () => loadChat(contact.number, contact.isGroup || false));
                     contactList.appendChild(li);
                 });
+
+                // Load the latest chat on page load
+                fetch('/latest-chat')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.chatId) {
+                            loadChat(data.chatId, data.isGroup);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching latest chat:', error));
             })
             .catch(error => console.error('Error fetching contacts:', error));
 
@@ -438,13 +448,11 @@
         chat.innerHTML = '';
 
         // Fetch and display the chat history for the selected contact or group
-        fetch('/messages')
+        fetch(`/messages?contact=${number}`)
             .then(response => response.json())
             .then(messages => {
                 messages.reverse().forEach(msg => {
-                    if (msg.from === number || msg.to === number || (isGroup && msg.groupId === number)) {
-                        addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-                    }
+                    addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
                 });
             })
             .catch(error => console.error('Error fetching messages:', error));
