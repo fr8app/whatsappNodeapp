@@ -3,7 +3,7 @@
 <head>
     <title>WhatsApp Interface</title>
     <style>
-         body {
+        body {
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
             display: flex;
@@ -183,13 +183,13 @@
         #sendMessage button:hover {
             background-color: #064e48;
         }
-        #createGroupForm, #addContactForm, #forwardMessageForm {
+        #createGroupForm, #addContactForm, #forwardMessageForm, #addMemberForm {
             display: flex;
             border-top: 1px solid #ddd;
             padding: 10px;
             background-color: #fafafa;
         }
-        #createGroupForm input, #addContactForm input, #forwardMessageForm input {
+        #createGroupForm input, #addContactForm input, #forwardMessageForm input, #addMemberForm input {
             flex: 1;
             padding: 10px;
             margin: 5px;
@@ -197,7 +197,7 @@
             border-radius: 5px;
             outline: none;
         }
-        #createGroupForm button, #addContactForm button, #forwardMessageForm button {
+        #createGroupForm button, #addContactForm button, #forwardMessageForm button, #addMemberForm button {
             padding: 10px;
             background-color: #075e54;
             color: white;
@@ -206,7 +206,7 @@
             cursor: pointer;
             margin: 5px;
         }
-        #createGroupForm button:hover, #addContactForm button:hover, #forwardMessageForm button:hover {
+        #createGroupForm button:hover, #addContactForm button:hover, #forwardMessageForm button:hover, #addMemberForm button:hover {
             background-color: #064e48;
         }
         #closeForwardMessage {
@@ -331,6 +331,94 @@
         });
     });
 
+    document.querySelector('form#createGroupForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const name = document.querySelector('input#groupName').value;
+        const members = document.querySelector('input#groupMembers').value.split(',');
+
+        fetch('/create-group', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name,
+                members: members
+            })
+        }).then(response => response.json()).then(data => {
+            if (data.group) {
+                alert(`Group created with ID: ${data.group._id}`);
+                location.reload();
+            }
+        }).catch(error => {
+            console.error('Error creating group:', error);
+        });
+    });
+
+    document.querySelector('form#addContactForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const name = document.querySelector('input#contactName').value;
+        const number = document.querySelector('input#contactNumber').value;
+
+        fetch('/add-contact', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name,
+                number: number
+            })
+        }).then(response => response.json()).then(data => {
+            if (data.contact) {
+                alert(`Contact added: ${data.contact.name}`);
+                location.reload();
+            }
+        }).catch(error => {
+            console.error('Error adding contact:', error);
+        });
+    });
+
+    document.querySelector('form#forwardMessageForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const message = document.querySelector('input#messageToForward').value;
+        const to = document.querySelector('input#forwardToNumber').value;
+
+        fetch('/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to: to,
+                message: message,
+                isGroup: false
+            })
+        }).then(response => response.json()).then(data => {
+            if (data.message) {
+                alert('Message forwarded successfully');
+                document.querySelector('input#forwardToNumber').value = '';
+                document.querySelector('form#forwardMessageForm').style.display = 'none';
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+        });
+    });
+
+    document.getElementById('addContact').addEventListener('click', () => {
+        document.getElementById('addContactForm').style.display = 'flex';
+        document.getElementById('createGroupForm').style.display = 'none';
+        document.getElementById('forwardMessageForm').style.display = 'none';
+        document.getElementById('addMemberForm').style.display = 'none';
+    });
+
+    document.getElementById('createGroup').addEventListener('click', () => {
+        document.getElementById('createGroupForm').style.display = 'flex';
+        document.getElementById('addContactForm').style.display = 'none';
+        document.getElementById('forwardMessageForm').style.display = 'none';
+        document.getElementById('addMemberForm').style.display = 'none';
+    });
+
     const loadChat = async (number, isGroup) => {
         const response = await fetch('/contacts');
         const contacts = await response.json();
@@ -429,6 +517,7 @@
         document.querySelector('input#messageToForward').value = message;
         document.getElementById('addContactForm').style.display = 'none';
         document.getElementById('createGroupForm').style.display = 'none';
+        document.getElementById('addMemberForm').style.display = 'none';
     };
 
     const closeForwardMessage = () => {
