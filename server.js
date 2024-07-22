@@ -44,7 +44,9 @@ const Contact = mongoose.model('Contact', contactSchema);
 
 // Standardize contact number
 const standardizeNumber = (number) => {
+    // Remove all non-digit characters except for '+'
     let sanitizedNumber = number.replace(/[^\d+]/g, '');
+    // Check if the number is valid (must contain country code and number part)
     const validNumberPattern = /^\+\d{10,15}$/;
     return validNumberPattern.test(sanitizedNumber) ? sanitizedNumber : null;
 };
@@ -150,6 +152,7 @@ app.post('/create-group', (req, res) => {
         return res.status(400).json({ error: 'Group name and members are required' });
     }
 
+    // Ensure all members' phone numbers are properly formatted
     const formattedMembers = members.map(member => standardizeNumber(member)).filter(member => member !== null);
 
     const newGroup = new Group({ name, members: formattedMembers });
@@ -185,23 +188,12 @@ app.post('/add-contact', (req, res) => {
     });
 });
 
-// Endpoint to fetch messages with pagination
-app.get('/messages', async (req, res) => {
-    const { contact, limit = 20, skip = 0 } = req.query;
-
-    try {
-        const messages = await Message.find({
-            $or: [{ from: contact }, { to: contact }]
-        })
-        .sort({ date: -1 })
-        .skip(parseInt(skip))
-        .limit(parseInt(limit));
-
-        res.json(messages.reverse());
-    } catch (err) {
+// Endpoint to fetch all messages
+app.get('/messages', (req, res) => {
+    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => {
         console.error('Error fetching messages:', err);
         res.status(500).send('Error fetching messages');
-    }
+    });
 });
 
 // Endpoint to fetch unique contacts from messages and groups
