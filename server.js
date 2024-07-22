@@ -190,18 +190,20 @@ app.post('/add-contact', (req, res) => {
 
 // Endpoint to fetch messages with pagination
 app.get('/messages', async (req, res) => {
-    const { contact, page = 1, limit = 20 } = req.query;
+    const { contact, before } = req.query;
+    const limit = 20; // Number of messages per page
+    let query = {
+        $or: [{ from: contact }, { to: contact }]
+    };
+
+    if (before) {
+        query.date = { $lt: new Date(before) };
+    }
 
     try {
-        const query = {
-            $or: [{ from: contact }, { to: contact }]
-        };
-        
         const messages = await Message.find(query)
             .sort({ date: -1 })
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit));
-
+            .limit(limit);
         res.json(messages);
     } catch (err) {
         console.error('Error fetching messages:', err);
