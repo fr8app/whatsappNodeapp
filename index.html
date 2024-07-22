@@ -277,9 +277,6 @@
     </div>
     
     <script>
-    let currentPage = 1;
-    const limit = 20;  // Number of messages per page
-
     document.addEventListener('DOMContentLoaded', (event) => {
         // Fetch and display the contacts and groups
         fetch('/contacts')
@@ -304,124 +301,19 @@
             const { from, message, to } = JSON.parse(event.data);
             addMessage(from, message, to === 'whatsapp:+18434843838');
         };
-    });
 
-    document.querySelector('form#sendMessage').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const number = document.querySelector('input#to').value;
-        const message = document.querySelector('textarea#message').value;
-        const isGroup = document.querySelector('input#to').dataset.isGroup === 'true';
-
-        fetch('/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                to: number,
-                message: message,
-                isGroup: isGroup
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.message) {
-                addMessage('whatsapp:+18434843838', message, true);
-                document.querySelector('textarea#message').value = '';
-                document.getElementById('replyMessage').style.display = 'none';
-                document.getElementById('replyMessageText').textContent = '';
+        // Set up infinite scroll for chat messages
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.addEventListener('scroll', () => {
+            if (chatMessages.scrollTop === 0) {
+                loadOlderMessages();
             }
-        }).catch(error => {
-            console.error('Error:', error);
         });
     });
 
-    document.querySelector('form#createGroupForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = document.querySelector('input#groupName').value;
-        const members = document.querySelector('input#groupMembers').value.split(',');
-
-        fetch('/create-group', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                members: members
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.group) {
-                alert(`Group created with ID: ${data.group._id}`);
-                location.reload();
-            }
-        }).catch(error => {
-            console.error('Error creating group:', error);
-        });
-    });
-
-    document.querySelector('form#addContactForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = document.querySelector('input#contactName').value;
-        const number = document.querySelector('input#contactNumber').value;
-
-        fetch('/add-contact', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name,
-                number: number
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.contact) {
-                alert(`Contact added: ${data.contact.name}`);
-                location.reload();
-            }
-        }).catch(error => {
-            console.error('Error adding contact:', error);
-        });
-    });
-
-    document.querySelector('form#forwardMessageForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const message = document.querySelector('input#messageToForward').value;
-        const to = document.querySelector('input#forwardToNumber').value;
-
-        fetch('/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                to: to,
-                message: message,
-                isGroup: false
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.message) {
-                alert('Message forwarded successfully');
-                document.querySelector('input#forwardToNumber').value = '';
-                document.querySelector('form#forwardMessageForm').style.display = 'none';
-            }
-        }).catch(error => {
-            console.error('Error:', error);
-        });
-    });
-
-    document.getElementById('addContact').addEventListener('click', () => {
-        document.getElementById('addContactForm').style.display = 'flex';
-        document.getElementById('createGroupForm').style.display = 'none';
-        document.getElementById('forwardMessageForm').style.display = 'none';
-    });
-
-    document.getElementById('createGroup').addEventListener('click', () => {
-        document.getElementById('createGroupForm').style.display = 'flex';
-        document.getElementById('addContactForm').style.display = 'none';
-        document.getElementById('forwardMessageForm').style.display = 'none';
-    });
+    let lastMessageDate = null;
 
     const loadChat = async (number, isGroup) => {
-        currentPage = 1;  // Reset current page for new chat
         const response = await fetch('/contacts');
         const contacts = await response.json();
         const contact = contacts.find(contact => contact.number === number);
@@ -431,28 +323,40 @@
         document.querySelector('input#to').value = number;
         document.querySelector('input#to').dataset.isGroup = isGroup;
 
-        // Clear the chat messages
+        // Clear the chat messages and reset the last message date
         const chat = document.getElementById('chatMessages');
         chat.innerHTML = '';
+        lastMessageDate = null;
 
-        // Fetch and display the chat history for the selected contact or group
-        fetchMessages(number);
+        // Fetch and display the latest chat history for the selected contact or group
+        loadMessages(number, isGroup);
     };
 
-    const fetchMessages = async (contact, append = false) => {
-        const chat = document.getElementById('chatMessages');
-        const response = await fetch(`/messages?contact=${contact}&page=${currentPage}&limit=${limit}`);
-        const messages = await response.json();
-
-        if (!append) {
-            chat.innerHTML = '';  // Clear chat if not appending
+    const loadMessages = async (number, isGroup, older = false) => {
+        let url = `/messages?contact=${number}`;
+        if (lastMessageDate) {
+            url += `&before=${lastMessageDate}`;
         }
 
-        messages.reverse().forEach(msg => {
-            addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
-        });
+        try {
+            const response = await fetch(url);
+            const messages = await response.json();
+            messages.reverse().forEach(msg => {
+                addMessage(msg.from, msg.body, msg.from === 'whatsapp:+18434843838');
+            });
 
-        currentPage++;
+            if (messages.length > 0) {
+                lastMessageDate = messages[0].date;
+            }
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        }
+    };
+
+    const loadOlderMessages = () => {
+        const number = document.querySelector('input#to').value;
+        const isGroup = document.querySelector('input#to').dataset.isGroup === 'true';
+        loadMessages(number, isGroup, true);
     };
 
     const addMessage = async (from, message, isOutgoing) => {
@@ -484,14 +388,6 @@
         chat.appendChild(msgDiv);
         chat.scrollTop = chat.scrollHeight; // Scroll to bottom
     };
-
-    document.getElementById('chatMessages').addEventListener('scroll', () => {
-        const chat = document.getElementById('chatMessages');
-        if (chat.scrollTop === 0) {
-            const contact = document.querySelector('input#to').value;
-            fetchMessages(contact, true);
-        }
-    });
 
     const replyMessage = (from, message) => {
         const replyMessageDiv = document.getElementById('replyMessage');
