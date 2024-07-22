@@ -12,7 +12,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const accountSid = 'ACac793f02cf5fd252f8206d87bb06d91a';
-const authToken = 'c5924dd861795f8e2db2b4420a5f0353';
+const authToken = 'ad1156294187e154f53ba483284d018b';
 const client = new twilio(accountSid, authToken);
 
 // Connect to MongoDB
@@ -44,7 +44,9 @@ const Contact = mongoose.model('Contact', contactSchema);
 
 // Standardize contact number
 const standardizeNumber = (number) => {
+    // Remove all non-digit characters except for '+'
     let sanitizedNumber = number.replace(/[^\d+]/g, '');
+    // Check if the number is valid (must contain country code and number part)
     const validNumberPattern = /^\+\d{10,15}$/;
     return validNumberPattern.test(sanitizedNumber) ? sanitizedNumber : null;
 };
@@ -150,6 +152,7 @@ app.post('/create-group', (req, res) => {
         return res.status(400).json({ error: 'Group name and members are required' });
     }
 
+    // Ensure all members' phone numbers are properly formatted
     const formattedMembers = members.map(member => standardizeNumber(member)).filter(member => member !== null);
 
     const newGroup = new Group({ name, members: formattedMembers });
@@ -186,40 +189,11 @@ app.post('/add-contact', (req, res) => {
 });
 
 // Endpoint to fetch all messages
-app.get('/messages', async (req, res) => {
-    const { contact, limit = 20, skip = 0 } = req.query;
-
-    try {
-        const messages = await Message.find({
-            $or: [{ from: contact }, { to: contact }]
-        })
-        .sort({ date: -1 })
-        .skip(parseInt(skip))
-        .limit(parseInt(limit));
-
-        res.json(messages.reverse());
-    } catch (err) {
+app.get('/messages', (req, res) => {
+    Message.find().sort({ date: -1 }).then(messages => res.json(messages)).catch(err => {
         console.error('Error fetching messages:', err);
         res.status(500).send('Error fetching messages');
-    }
-});
-
-// Endpoint to fetch the latest contact or group
-// Endpoint to fetch the latest contact or group
-app.get('/latest-chat', async (req, res) => {
-    try {
-        const latestMessage = await Message.findOne().sort({ date: -1 }).exec();
-        if (latestMessage) {
-            const isGroup = !!(await Group.findOne({ members: { $in: [latestMessage.from, latestMessage.to] } }));
-            const chatId = isGroup ? latestMessage.to : latestMessage.from;
-            res.json({ chatId, isGroup });
-        } else {
-            res.status(404).json({ error: 'No chats found' });
-        }
-    } catch (err) {
-        console.error('Error fetching latest chat:', err);
-        res.status(500).send('Error fetching latest chat');
-    }
+    });
 });
 
 // Endpoint to fetch unique contacts from messages and groups
